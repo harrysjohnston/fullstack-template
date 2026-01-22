@@ -1,0 +1,21 @@
+{
+  "name": "fullstack-template",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "web:lint": "pnpm -C apps/web lint",
+    "web:test": "pnpm -C apps/web test",
+    "api:lint": "python -m ruff check apps/api",
+    "api:format": "python -m ruff format apps/api",
+    "api:test": "python -m pytest -q -c apps/api/pyproject.toml apps/api",
+    "lint": "pnpm -C apps/web lint && python -m ruff check apps/api",
+    "test": "pnpm -C apps/web test && python -m pytest -q -c apps/api/pyproject.toml apps/api"
+  },
+  "dependencies": {
+    "next": "16.2.0-canary.4"
+  }
+}

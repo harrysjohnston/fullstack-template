@@ -1,0 +1,41 @@
+name: fullstack-template
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # api:
+  #   build: ./apps/api
+  #   environment:
+  #     DATABASE_URL: postgresql+psycopg://app:app@db:5432/app
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   ports:
+  #     - "${API_PORT:-8000}:8000"
+
+  # web:
+  #   build: ./apps/web
+  #   environment:
+  #     NEXT_PUBLIC_API_BASE_URL: http://localhost:${API_PORT:-8000}
+  #   depends_on:
+  #     - api
+  #   ports:
+  #     - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
