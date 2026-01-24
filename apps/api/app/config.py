@@ -79,12 +79,27 @@ class Settings(BaseSettings):
         default=30,
         description="JWT access token expiration in minutes",
     )
+    jwt_refresh_token_expire_days: int = Field(
+        default=7,
+        description="JWT refresh token expiration in days",
+    )
 
-    # Database settings (for future use)
+    # Database settings
     database_url: str | None = Field(
         default=None,
-        description="PostgreSQL database URL",
+        description="PostgreSQL database URL (overrides individual postgres_* settings)",
     )
+    postgres_user: str = Field(default="app", description="PostgreSQL user")
+    postgres_password: str = Field(default="app", description="PostgreSQL password")
+    postgres_db: str = Field(default="app", description="PostgreSQL database name")
+    postgres_host: str = Field(default="localhost", description="PostgreSQL host")
+    postgres_port: int = Field(default=5432, description="PostgreSQL port")
+
+    def get_database_url(self) -> str:
+        """Get database URL from settings or construct from components."""
+        if self.database_url:
+            return self.database_url
+        return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
     # Logging
     log_level: str = Field(

@@ -38,26 +38,26 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
 
 ### 3) Database foundation (Postgres + SQLModel)
 
-- Add Postgres via Docker Compose for local development.
-- Introduce SQLModel models + session management patterns.
-- Add migrations strategy (likely Alembic; decide when we reach this step).
-- Add API endpoints that read/write to DB with tests.
+- ~~Add Postgres via Docker Compose for local development.~~
+- ~~Introduce SQLModel models + session management patterns.~~
+- ~~Add migrations strategy (Alembic with autogenerate support).~~
+- ~~Add API endpoints that read/write to DB with tests.~~
 
 ### 4) Authentication (FastAPI + JWT)
 
-- Implement auth endpoints (register/login/refresh/logout as decided).
-- Define JWT claims and token lifetimes.
-- Add auth middleware/dependencies for protected endpoints.
-- Add tests for auth flows and edge cases.
+- ~~Implement auth endpoints (register/login/refresh/logout as decided).~~
+- ~~Define JWT claims and token lifetimes.~~
+- ~~Add auth middleware/dependencies for protected endpoints.~~
+- ~~Add tests for auth flows and edge cases.~~
 
 ### 5) REST API conventions
 
-- Standardize:
-  - request/response schemas
-  - pagination patterns
-  - error format
-  - versioning strategy
-- Add API client strategy in `apps/web` (simple fetch wrapper at first).
+- ~~Standardize:~~
+  - ~~request/response schemas~~
+  - ~~pagination patterns~~
+  - ~~error format~~
+  - ~~versioning strategy~~
+- ~~Add API client strategy in `apps/web` (simple fetch wrapper at first).~~
 
 ### 6) Realtime: SSE
 
