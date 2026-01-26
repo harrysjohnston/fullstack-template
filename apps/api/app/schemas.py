@@ -1,5 +1,7 @@
 """Shared API schemas for consistent request/response formats."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -37,3 +39,11 @@ class ListResponseEnvelope[T](BaseModel):
 
     data: list[T] = Field(description="List of items")
     meta: PaginationMeta = Field(description="Pagination metadata")
+
+
+class SSEEvent(BaseModel):
+    """Server-Sent Event payload."""
+
+    event: str = Field(description="Event type name")
+    data: dict[str, Any] = Field(description="Event payload data")
+    id: str | None = Field(default=None, description="Event ID for resumption (Last-Event-ID)")

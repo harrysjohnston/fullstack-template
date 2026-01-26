@@ -67,6 +67,7 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
 
 ### 7) File uploads via presigned URLs (multi-cloud)
 
+- Create an AWS account
 - Define a provider interface:
   - **S3** default provider
   - **GCS** provider (learning)

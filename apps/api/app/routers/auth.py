@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -15,9 +15,14 @@ from app.auth import (
     require_active_refresh_token,
     verify_password,
 )
+from app.config import settings
 from app.database import get_session
 from app.models import RefreshToken, User, UserCreate, UserRead
 from app.schemas import ResponseEnvelope
+
+# Cookie configuration
+SSE_COOKIE_NAME = "sse_token"
+SSE_COOKIE_MAX_AGE = settings.jwt_access_token_expire_minutes * 60
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -68,7 +73,9 @@ def register(
 
 @router.post("/login", response_model=ResponseEnvelope[TokenResponse])
 def login(
-    payload: LoginRequest, session: Session = Depends(get_session)
+    payload: LoginRequest,
+    response: Response,
+    session: Session = Depends(get_session),
 ) -> ResponseEnvelope[TokenResponse]:
     user = session.exec(select(User).where(User.email == payload.email)).first()
     if not user or not user.is_active or not user.password_hash:
@@ -83,6 +90,16 @@ def login(
     session.add(RefreshToken(jti=jti, user_id=user.id, expires_at=refresh_exp))  # type: ignore[arg-type]
     session.commit()
 
+    # Set HTTP-only cookie for SSE authentication
+    response.set_cookie(
+        key=SSE_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        secure=settings.is_production,  # HTTPS only in production
+        samesite="lax",
+        max_age=SSE_COOKIE_MAX_AGE,
+    )
+
     return ResponseEnvelope(
         data=TokenResponse(access_token=access_token, refresh_token=refresh_token)
     )
@@ -90,7 +107,9 @@ def login(
 
 @router.post("/refresh", response_model=ResponseEnvelope[TokenResponse])
 def refresh(
-    payload: RefreshRequest, session: Session = Depends(get_session)
+    payload: RefreshRequest,
+    response: Response,
+    session: Session = Depends(get_session),
 ) -> ResponseEnvelope[TokenResponse]:
     token_data, row = require_active_refresh_token(token=payload.refresh_token, session=session)
 
@@ -104,15 +123,32 @@ def refresh(
     session.add(RefreshToken(jti=new_jti, user_id=token_data.user_id, expires_at=refresh_exp))
     session.commit()
 
+    # Update HTTP-only cookie for SSE authentication
+    response.set_cookie(
+        key=SSE_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="lax",
+        max_age=SSE_COOKIE_MAX_AGE,
+    )
+
     return ResponseEnvelope(
         data=TokenResponse(access_token=access_token, refresh_token=refresh_token)
     )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(payload: LogoutRequest, session: Session = Depends(get_session)) -> None:
+def logout(
+    payload: LogoutRequest,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> None:
     _token_data, row = require_active_refresh_token(token=payload.refresh_token, session=session)
 
     row.revoked_at = datetime.now(UTC).replace(tzinfo=None)
     session.add(row)
     session.commit()
+
+    # Clear SSE cookie
+    response.delete_cookie(key=SSE_COOKIE_NAME)
