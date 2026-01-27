@@ -61,23 +61,23 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
 
 ### 6) Realtime: SSE
 
-- Add SSE endpoints to API (connection lifecycle, heartbeats, backpressure).
-- Add client support in web (EventSource wrapper + reconnection strategy).
-- Add tests around SSE behavior where feasible.
+- ~~Add SSE endpoints to API (connection lifecycle, heartbeats, backpressure).~~
+- ~~Add client support in web (EventSource wrapper + reconnection strategy).~~
+- ~~Add tests around SSE behavior where feasible.~~
 
 ### 7) File uploads via presigned URLs (multi-cloud)
 
-- Create an AWS account
-- Define a provider interface:
-  - **S3** default provider
-  - **GCS** provider (learning)
-  - **Azure Blob** provider (learning)
-- Implement “create upload” API endpoint that returns:
-  - presigned URL
-  - required headers/fields
-  - upload metadata
-- Add a simple web UI for uploading a file using the presigned flow.
-- Add local-dev story (options: MinIO or local stub provider; decide when implementing).
+- ~~Create an AWS account~~
+- ~~Define a provider interface:~~
+  - ~~**S3** default provider~~
+  - ~~**GCS** provider (learning)~~
+  - ~~**Azure Blob** provider (learning)~~
+- ~~Implement “create upload” API endpoint that returns:~~
+  - ~~presigned URL~~
+  - ~~required headers/fields~~
+  - ~~upload metadata~~
+- ~~Add a simple web UI for uploading a file using the presigned flow.~~
+- ~~Add local-dev story (options: MinIO or local stub provider; decide when implementing).~~
 
 ### 8) Email pipeline (Jinja2 + MJML)
 

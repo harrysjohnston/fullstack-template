@@ -107,6 +107,34 @@ class Settings(BaseSettings):
         description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
 
+    # Storage settings
+    storage_provider: str = Field(
+        default="s3",
+        description="Storage provider (s3 | gcs | azure)",
+    )
+    s3_bucket: str = Field(default="", description="S3 bucket name")
+    s3_region: str = Field(default="us-east-1", description="S3 region")
+    s3_endpoint_url: str | None = Field(
+        default=None,
+        description="S3 endpoint URL (for MinIO: http://localhost:9000)",
+    )
+    s3_access_key_id: str | None = Field(
+        default=None,
+        description="S3 access key ID",
+    )
+    s3_secret_access_key: str | None = Field(
+        default=None,
+        description="S3 secret access key",
+    )
+    upload_max_size_bytes: int = Field(
+        default=10 * 1024 * 1024,
+        description="Maximum upload size in bytes (default: 10 MB)",
+    )
+    upload_url_expires_seconds: int = Field(
+        default=900,
+        description="Presigned URL expiration time in seconds (default: 15 minutes)",
+    )
+
     @property
     def is_development(self) -> bool:
         """Check if running in development environment."""

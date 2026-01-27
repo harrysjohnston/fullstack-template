@@ -5,56 +5,10 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, SQLModel, create_engine, select
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session, select
 
 from app.auth import hash_password
-from app.database import get_session
-from app.main import app
 from app.models import User
-
-
-# Create in-memory SQLite database for testing
-@pytest.fixture(name="session")
-def session_fixture():
-    """Create a test database session."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
-    """Create a test client with the test database session."""
-
-    def get_session_override():
-        return session
-
-    app.dependency_overrides[get_session] = get_session_override
-    client = TestClient(app)
-    yield client
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture(name="auth_headers")
-def auth_headers_fixture(client: TestClient) -> dict[str, str]:
-    """Register+login a user and return Authorization header."""
-    client.post(
-        "/api/v1/auth/register",
-        json={"email": "auth@example.com", "name": "Auth User", "password": "password123"},
-    )
-    resp = client.post(
-        "/api/v1/auth/login", json={"email": "auth@example.com", "password": "password123"}
-    )
-    assert resp.status_code == 200
-    login_data = resp.json()["data"]
-    access = login_data["access_token"]
-    return {"Authorization": f"Bearer {access}"}
 
 
 @pytest.fixture(name="sample_user")

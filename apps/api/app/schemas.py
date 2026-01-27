@@ -47,3 +47,11 @@ class SSEEvent(BaseModel):
     event: str = Field(description="Event type name")
     data: dict[str, Any] = Field(description="Event payload data")
     id: str | None = Field(default=None, description="Event ID for resumption (Last-Event-ID)")
+
+
+class CreateUploadRequest(BaseModel):
+    """Request schema for creating a presigned upload URL."""
+
+    filename: str = Field(description="Original filename")
+    content_type: str = Field(description="MIME type (e.g., image/png)")
+    size_bytes: int | None = Field(default=None, description="File size in bytes (optional)")

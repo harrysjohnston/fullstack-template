@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.exceptions import setup_exception_handlers
-from app.routers import auth, sse, users
+from app.routers import auth, sse, uploads, users
 
 app = FastAPI(
     title=settings.app_name,
@@ -30,6 +30,7 @@ setup_exception_handlers(app)
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(sse.router, prefix="/api/v1")
+app.include_router(uploads.router, prefix="/api/v1")
 
 
 @app.get("/health")
