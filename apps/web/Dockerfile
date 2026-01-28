@@ -14,7 +14,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
 
 # Install all dependencies (including dev)
-RUN pnpm install --filter apps/web... --frozen-lockfile
+RUN pnpm install --filter @apps/web... --frozen-lockfile
 
 # Development stage
 FROM base AS development
@@ -26,7 +26,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
 
 # Install dependencies
-RUN pnpm install --filter apps/web...
+RUN pnpm install --filter @apps/web...
 
 # Copy application code
 COPY apps/web apps/web
@@ -55,8 +55,9 @@ FROM base AS production
 WORKDIR /app
 
 # Create non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser && \
+# Use GID/UID 1001 to avoid conflicts with existing system users
+RUN addgroup -g 1001 appuser && \
+    adduser -D -u 1001 -G appuser appuser && \
     chown -R appuser:appuser /app
 
 # Copy package files for production dependencies
@@ -64,7 +65,7 @@ COPY --chown=appuser:appuser package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --chown=appuser:appuser apps/web/package.json apps/web/
 
 # Install production dependencies only
-RUN pnpm install --filter apps/web... --frozen-lockfile --prod
+RUN pnpm install --filter @apps/web... --frozen-lockfile --prod
 
 # Copy built application from builder
 COPY --from=builder --chown=appuser:appuser /app/apps/web/.next /app/apps/web/.next

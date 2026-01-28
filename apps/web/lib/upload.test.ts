@@ -81,7 +81,6 @@ class MockXMLHttpRequest {
 describe("uploadFile", () => {
   beforeEach(() => {
     MockXMLHttpRequest.instances = [];
-    // @ts-expect-error - Mocking global XMLHttpRequest
     globalThis.XMLHttpRequest = MockXMLHttpRequest as unknown as typeof XMLHttpRequest;
   });
 

@@ -19,7 +19,7 @@ import {
 /**
  * Options for the useSSE hook.
  */
-export interface UseSSEOptions {
+export interface UseSSEOptions<T = unknown> {
   /** Whether the connection should be active (default: true) */
   enabled?: boolean;
   /** Event types to listen for (default: all) */
@@ -27,7 +27,7 @@ export interface UseSSEOptions {
   /** Maximum number of events to buffer (default: 50) */
   maxEvents?: number;
   /** Callback when an event is received */
-  onEvent?: (event: SSEEvent) => void;
+  onEvent?: (event: SSEEvent<T>) => void;
   /** Callback when connection status changes */
   onStatusChange?: (status: SSEConnectionStatus) => void;
 }
@@ -72,7 +72,7 @@ export interface UseSSEResult<T = unknown> {
  * @param options - Hook options
  * @returns SSE connection state and controls
  */
-export function useSSE<T = unknown>(options: UseSSEOptions = {}): UseSSEResult<T> {
+export function useSSE<T = unknown>(options: UseSSEOptions<T> = {}): UseSSEResult<T> {
   const { enabled = true, eventTypes, maxEvents = 50, onEvent, onStatusChange } = options;
 
   const [status, setStatus] = useState<SSEConnectionStatus>("disconnected");
@@ -94,7 +94,7 @@ export function useSSE<T = unknown>(options: UseSSEOptions = {}): UseSSEResult<T
       setEvents((prev) => [typedEvent, ...prev].slice(0, maxEvents));
       onEvent?.(typedEvent);
     },
-    [maxEvents, onEvent]
+    [maxEvents, onEvent],
   );
 
   const handleStatusChange = useCallback(
@@ -102,7 +102,7 @@ export function useSSE<T = unknown>(options: UseSSEOptions = {}): UseSSEResult<T
       setStatus(newStatus);
       onStatusChange?.(newStatus);
     },
-    [onStatusChange]
+    [onStatusChange],
   );
 
   const connect = useCallback(() => {

@@ -112,11 +112,25 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   // Build URL with query parameters
   const url = buildUrl(path, params);
 
-  // Set default headers
-  const headers: HeadersInit = {
+  // Normalize headers to a plain object
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...fetchOptions.headers,
   };
+
+  // Convert fetchOptions.headers to a plain object if provided
+  if (fetchOptions.headers) {
+    if (fetchOptions.headers instanceof Headers) {
+      fetchOptions.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+    } else if (Array.isArray(fetchOptions.headers)) {
+      fetchOptions.headers.forEach(([key, value]) => {
+        headers[key] = value;
+      });
+    } else {
+      Object.assign(headers, fetchOptions.headers);
+    }
+  }
 
   // Add Authorization header if token is available (you can enhance this later)
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;

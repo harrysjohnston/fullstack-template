@@ -5,6 +5,7 @@ dist/
 out/
 .turbo/
 .pnpm-store/
+*.tsbuildinfo
 
 # Python
 __pycache__/

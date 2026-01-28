@@ -17,12 +17,7 @@ repos:
   # - Node deps installed for apps/web (pnpm install)
   - repo: local
     hooks:
-      - id: ruff-check
-        name: ruff (lint)
-        entry: python -m ruff check apps/api
-        language: system
-        pass_filenames: false
-
+      # Format checks (fastest - just formatting)
       - id: ruff-format
         name: ruff (format)
         entry: python -m ruff format apps/api
@@ -32,5 +27,19 @@ repos:
       - id: biome
         name: biome (format+lint)
         entry: pnpm -C apps/web format
+        language: system
+        pass_filenames: false
+
+      # Lint checks (fast - code style/patterns)
+      - id: ruff-check
+        name: ruff (lint)
+        entry: python -m ruff check apps/api
+        language: system
+        pass_filenames: false
+
+      # Type checking (medium - static analysis)
+      - id: typescript-check
+        name: typescript (typecheck)
+        entry: pnpm -C apps/web typecheck
         language: system
         pass_filenames: false

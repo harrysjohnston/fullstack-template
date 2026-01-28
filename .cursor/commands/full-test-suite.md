@@ -6,7 +6,7 @@ Run the entire test suite from the repo root (unit + e2e for web, unit for API):
 pnpm test:full
 ```
 
-**CI-style (lint + full tests), same order as CI — use before push:**
+**CI-style (lint + typecheck + full tests), same order as CI — use before push:**
 
 ```bash
 pnpm test:ci
@@ -31,17 +31,21 @@ Execution order is fixed: unit then e2e so the dev server is only started once f
 ## Relation to CI
 
 CI runs **web** (Biome → Vitest → Playwright) and **api** (Ruff check + Ruff format check → Pytest) in **parallel** jobs.
-`test:full` does **not** run lint. For a local run that matches CI checks, use **`pnpm test:ci`**: it runs `lint:ci` (web Biome + api Ruff check + api Ruff format check) then `test:full`.
+`test:full` does **not** run lint or typecheck. For a local run that matches CI checks, use **`pnpm test:ci`**: it runs `lint:ci` (web Biome + api Ruff check + api Ruff format check), then `typecheck`, then `test:full`.
 
 ## Optional commands
 
-- **CI-style** (lint + full tests, same as CI):
+- **CI-style** (lint + typecheck + full tests, same as CI):
   ```bash
   pnpm test:ci
   ```
 - **Lint only, CI-style** (web Biome + api Ruff check + api Ruff format check):
   ```bash
   pnpm lint:ci
+  ```
+- **Typecheck only** (TypeScript in `apps/web`):
+  ```bash
+  pnpm typecheck
   ```
 - **Unit tests only** (no e2e, faster iteration):
   ```bash

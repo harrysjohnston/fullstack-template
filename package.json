@@ -13,6 +13,7 @@
     "dev:down": "docker compose down",
     "build:prod": "docker build -f apps/api/Dockerfile --target production -t fullstack-api:prod . && docker build -f apps/web/Dockerfile --target production -t fullstack-web:prod .",
     "web:lint": "pnpm -C apps/web lint",
+    "web:typecheck": "pnpm -C apps/web typecheck",
     "web:test": "pnpm -C apps/web test",
     "api:lint": "python -m ruff check apps/api",
     "api:format": "python -m ruff format apps/api",
@@ -20,9 +21,10 @@
     "api:test": "python -m pytest -q -c apps/api/pyproject.toml apps/api",
     "lint": "pnpm -C apps/web lint && python -m ruff check apps/api",
     "lint:ci": "pnpm -C apps/web lint && python -m ruff check apps/api && python -m ruff format --check apps/api",
+    "typecheck": "pnpm -C apps/web typecheck",
     "test": "pnpm -C apps/web test && python -m pytest -q -c apps/api/pyproject.toml apps/api",
     "test:full": "echo '> Web unit' && pnpm -C apps/web test && echo '> Web e2e' && pnpm -C apps/web e2e && echo '> API' && python -m pytest -q -c apps/api/pyproject.toml apps/api",
-    "test:ci": "pnpm lint:ci && pnpm test:full"
+    "test:ci": "pnpm lint:ci && pnpm typecheck && pnpm test:full"
   },
   "dependencies": {
     "next": "16.2.0-canary.4"
