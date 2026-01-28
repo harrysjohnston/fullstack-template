@@ -107,6 +107,32 @@ class Settings(BaseSettings):
         description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
 
+    # Email (dev sink)
+    email_enabled: bool = Field(
+        default=True,
+        description="Enable email rendering and dev delivery",
+    )
+    email_from_address: str = Field(
+        default="no-reply@local",
+        description="Default from address for emails",
+    )
+    email_from_name: str = Field(
+        default="Fullstack Template",
+        description="Default from name for emails",
+    )
+    email_web_base_url: str = Field(
+        default="http://localhost:3000",
+        description="Base URL for frontend links in emails",
+    )
+    email_support_address: str = Field(
+        default="support@local",
+        description="Support contact for customer emails",
+    )
+    email_log_payload: bool = Field(
+        default=True,
+        description="Log rendered email content to the console sink",
+    )
+
     # Storage settings
     storage_provider: str = Field(
         default="s3",

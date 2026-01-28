@@ -1,0 +1,26 @@
+---
+description: Activate pyenv venv before running tests in this repo
+alwaysApply: true
+---
+
+# Python Test Environment
+
+Always activate the `fullstack-template` pyenv virtual environment before running any Python tooling or tests in this repo, and install dependencies when needed.
+
+If a test run fails due to a missing module, install it into the active env (prefer installing from the project config when possible).
+
+## Examples
+
+```bash
+# ✅ GOOD
+pyenv activate fullstack-template
+cd apps/api
+pip install -e .
+pytest
+```
+
+```bash
+# ❌ BAD
+cd apps/api
+pytest
+```

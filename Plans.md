@@ -81,10 +81,10 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
 
 ### 8) Email pipeline (Jinja2 + MJML)
 
-- Create email templates with Jinja2 inputs.
-- Render MJML → HTML in Python.
-- Add a development email sink (console/logging or local SMTP like MailHog; decide when implementing).
-- Add tests that validate rendered output and template inputs.
+- ~~Create email templates with Jinja2 inputs.~~
+- ~~Render MJML → HTML in Python.~~
+- ~~Add a development email sink (console/logging or local SMTP like MailHog; decide when implementing).~~
+- ~~Add tests that validate rendered output and template inputs.~~
 
 ### 9) Docker Compose “dev environment”
 

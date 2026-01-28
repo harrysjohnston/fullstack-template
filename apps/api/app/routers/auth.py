@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -17,6 +18,7 @@ from app.auth import (
 )
 from app.config import settings
 from app.database import get_session
+from app.email import EmailSendError, EmailTemplate, send_email
 from app.models import RefreshToken, User, UserCreate, UserRead
 from app.schemas import ResponseEnvelope
 
@@ -25,6 +27,7 @@ SSE_COOKIE_NAME = "sse_token"
 SSE_COOKIE_MAX_AGE = settings.jwt_access_token_expire_minutes * 60
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -68,6 +71,21 @@ def register(
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    try:
+        send_email(
+            template=EmailTemplate.WELCOME,
+            to_email=user.email,
+            to_name=user.name,
+            context={
+                "app_name": settings.app_name,
+                "user_name": user.name,
+                "login_url": f"{settings.email_web_base_url}/login",
+            },
+        )
+    except EmailSendError as exc:
+        logger.warning("Welcome email failed to send.", exc_info=exc)
+
     return ResponseEnvelope(data=user)
 
 
