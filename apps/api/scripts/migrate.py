@@ -131,9 +131,7 @@ def analyze_pending_migrations(alembic_cfg: Config) -> dict[str, Any]:
     has_destructive = False
 
     for rev in pending:
-        migration_file = (
-            versions_dir / f"{rev.revision}_{rev.down_revision or 'base'}.py"
-        )
+        migration_file = versions_dir / f"{rev.revision}_{rev.down_revision or 'base'}.py"
         # Try to find the file with a different naming pattern
         if not migration_file.exists():
             migration_files = list(versions_dir.glob(f"{rev.revision}_*.py"))
@@ -203,9 +201,7 @@ def run_preflight_checks(
 
     # Check for destructive operations
     if analysis["destructive"] and not allow_destructive:
-        log_error(
-            "Destructive operations detected and MIGRATION_ALLOW_DESTRUCTIVE=false"
-        )
+        log_error("Destructive operations detected and MIGRATION_ALLOW_DESTRUCTIVE=false")
         log_error("Set MIGRATION_ALLOW_DESTRUCTIVE=true to proceed")
         return False
 
@@ -269,9 +265,7 @@ def run_migrations(
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_info(f"Migration started at {timestamp}")
     log_info(f"Environment: {settings.environment}")
-    log_info(
-        f"Database: {settings.get_database_url().split('@')[-1]}"
-    )  # Hide credentials
+    log_info(f"Database: {settings.get_database_url().split('@')[-1]}")  # Hide credentials
 
     # Setup Alembic config
     alembic_ini = Path(__file__).parent.parent / "alembic.ini"

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createSSEConnection, getSSEEventsUrl, type SSEConnectionStatus } from "./sse";
+import { createSSEConnection, getSSEEventsUrl } from "./sse";
 
 // Mock EventSource
 class MockEventSource {

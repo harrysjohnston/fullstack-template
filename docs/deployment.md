@@ -289,7 +289,7 @@ This ensures PRs don't break production builds.
 On push to `main`, the deploy workflow:
 
 1. **Builds images**: Creates production Docker images for API and Web
-2. **Tags images**: 
+2. **Tags images**:
    - `main-{sha}` - specific commit
    - `latest` - most recent main branch build
 3. **Pushes to GHCR**: Images published to GitHub Container Registry

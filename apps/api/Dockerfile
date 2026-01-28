@@ -14,12 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only dependency files first for better caching
+# Copy dependency files and source for installation
 COPY apps/api/pyproject.toml ./
+COPY apps/api/app ./app
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir .
 
 # Development stage
 FROM base AS development

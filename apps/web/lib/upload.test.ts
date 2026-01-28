@@ -82,7 +82,7 @@ describe("uploadFile", () => {
   beforeEach(() => {
     MockXMLHttpRequest.instances = [];
     // @ts-expect-error - Mocking global XMLHttpRequest
-    global.XMLHttpRequest = MockXMLHttpRequest as any;
+    globalThis.XMLHttpRequest = MockXMLHttpRequest as unknown as typeof XMLHttpRequest;
   });
 
   afterEach(() => {
