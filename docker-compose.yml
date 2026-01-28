@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      target: development
     env_file:
       - .env
     environment:
@@ -22,6 +23,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      target: development
     env_file:
       - .env
     environment:

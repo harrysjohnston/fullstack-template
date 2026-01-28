@@ -52,9 +52,55 @@ jobs:
       - name: Pytest
         run: python -m pytest -q
 
-  # deploy:
-  #   name: Deploy (placeholder)
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - run: echo "Deploy steps will be added once hosting targets are chosen."
+  docker:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: production
+          push: false
+          tags: fullstack-template-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Web production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          target: production
+          push: false
+          tags: fullstack-template-web:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test API image health
+        run: |
+          docker run -d --name api-test -p 8000:8000 \
+            -e DATABASE_URL=sqlite:///./test.db \
+            -e JWT_SECRET=test-secret \
+            fullstack-template-api:test
+          sleep 10
+          curl -f http://localhost:8000/health || exit 1
+          docker logs api-test
+          docker stop api-test
+
+      - name: Test Web image startup
+        run: |
+          docker run -d --name web-test -p 3000:3000 \
+            -e NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 \
+            fullstack-template-web:test
+          sleep 15
+          # Check that the container is still running (didn't crash)
+          docker ps | grep web-test || exit 1
+          docker logs web-test
+          docker stop web-test

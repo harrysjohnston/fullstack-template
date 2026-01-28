@@ -96,16 +96,19 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
 
 ### 10) CI/CD (GitHub Actions)
 
-- On every PR:
-  - Biome check (web)
-  - Ruff check (api)
-  - Vitest
-  - Pytest
-  - (optional later) Playwright
-- Add deploy workflow (target TBD):
-  - Web deploy (Next.js)
-  - API deploy (FastAPI)
-  - DB migrations strategy + safety checks
+- ~~On every PR:~~
+  - ~~Biome check (web)~~
+  - ~~Ruff check (api)~~
+  - ~~Vitest~~
+  - ~~Pytest~~
+  - ~~Playwright~~
+  - ~~Docker build validation~~
+- ~~Add deploy workflow (Docker + GHCR foundation for AWS):~~
+  - ~~Web deploy (Next.js production image)~~
+  - ~~API deploy (FastAPI production image)~~
+  - ~~DB migrations strategy + safety checks~~
+  - ~~GitHub Container Registry push~~
+  - ~~Deployment documentation with AWS transition path~~
 
 ### 11) Infrastructure as Code (Terraform + AWS)
 
@@ -137,6 +140,15 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
   - `terraform validate` in CI
   - `terraform fmt` check
   - (optional) `terraform plan` on PRs (dry-run)
+
+### 12) Template finalization (GitHub Template)
+
+- Add `scripts/bootstrap` to get a fresh clone running end-to-end (copy `.env`, install deps, start/stop compose, run lint/tests).
+- Add `scripts/rename-template` to rename `fullstack-template` → `<project-name>` in key places (root `package.json`, docs; optionally compose/service labels).
+- Update root `README.md` with a clear “Using this as a template” section (what to rename, first-run commands, common pitfalls).
+- Add concise per-app “first run” notes in `apps/api/README.md` and `apps/web/README.md` (how to run without Docker, env vars).
+- Add a short “template checklist” doc (e.g. `config/template-checklist.md`) that lists what to customize + what *not* to commit (secrets).
+- (Optional later) Decide whether to introduce a generator (Cookiecutter/Copier) vs keep GitHub Template only.
 
 ## Open decisions (we’ll resolve when we reach them)
 

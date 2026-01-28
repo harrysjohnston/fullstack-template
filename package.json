@@ -11,6 +11,7 @@
     "dev:db": "docker compose --profile db up --build",
     "dev:full": "docker compose --profile db --profile storage --profile email up --build",
     "dev:down": "docker compose down",
+    "build:prod": "docker build -f apps/api/Dockerfile --target production -t fullstack-api:prod . && docker build -f apps/web/Dockerfile --target production -t fullstack-web:prod .",
     "web:lint": "pnpm -C apps/web lint",
     "web:test": "pnpm -C apps/web test",
     "api:lint": "python -m ruff check apps/api",

@@ -37,6 +37,18 @@ This repo is a **fullstack template** designed for learning by building each pie
 
 See `Plans.md` for the incremental roadmap and the decisions we’ll make at each step.
 
+
+## Deployment
+
+This project uses Docker containers with automated CI/CD via GitHub Actions. Images are published to GitHub Container Registry (GHCR) and can be deployed manually or to AWS.
+
+See **[docs/deployment.md](docs/deployment.md)** for:
+- Manual deployment with Docker
+- Database migration procedures
+- CI/CD pipeline details
+- Rollback procedures
+- AWS transition path (step 11)
+
 ## Pre-commit hooks
 
 This repo uses [`pre-commit`](https://pre-commit.com/) to run **Ruff** (Python) and **Biome** (JS/TS) before commits.
@@ -78,3 +90,44 @@ Notes:
 - API docs: `http://localhost:8000/docs`
 - MailHog UI (email profile): `http://localhost:8025`
 - MinIO console (storage profile): `http://localhost:9001`
+
+## Testing
+
+```bash
+# Run all tests
+pnpm test:full
+
+# API tests
+cd apps/api
+python -m pytest
+
+# Web unit tests
+cd apps/web
+pnpm test
+
+# Web e2e tests
+cd apps/web
+pnpm e2e
+
+# Check code quality
+pnpm lint
+```
+
+## Production Builds
+
+Production Docker images are built automatically on push to `main` via GitHub Actions. To build locally:
+
+```bash
+# Build API production image
+docker build -f apps/api/Dockerfile --target production -t fullstack-api:prod .
+
+# Build Web production image
+docker build -f apps/web/Dockerfile --target production -t fullstack-web:prod .
+
+# Or build both at once
+pnpm build:prod
+
+# Test the images
+docker run -p 8000:8000 -e DATABASE_URL=sqlite:///./test.db -e JWT_SECRET=test fullstack-api:prod
+docker run -p 3000:3000 -e NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 fullstack-web:prod
+```
