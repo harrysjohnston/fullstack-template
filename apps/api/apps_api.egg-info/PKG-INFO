@@ -12,6 +12,7 @@ Requires-Dist: python-jose[cryptography]>=3.3
 Requires-Dist: passlib[bcrypt]>=1.7.4
 Requires-Dist: bcrypt<5
 Requires-Dist: jinja2>=3.1
+Requires-Dist: mjml
 Requires-Dist: pydantic-settings>=2.5
 Requires-Dist: boto3>=1.35
 Provides-Extra: dev

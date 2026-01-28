@@ -15,6 +15,7 @@ apps_api.egg-info/dependency_links.txt
 apps_api.egg-info/requires.txt
 apps_api.egg-info/top_level.txt
 tests/test_auth.py
+tests/test_email_templates.py
 tests/test_health.py
 tests/test_sse.py
 tests/test_uploads.py

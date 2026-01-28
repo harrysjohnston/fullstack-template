@@ -88,11 +88,11 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
 
 ### 9) Docker Compose “dev environment”
 
-- Add compose profiles for:
-  - DB
-  - optional dev email sink
-  - optional storage emulator
-- Add documented `.env` usage and local boot sequence.
+- ~~Add compose profiles for:~~
+  - ~~DB~~
+  - ~~optional dev email sink~~
+  - ~~optional storage emulator~~
+- ~~Add documented `.env` usage and local boot sequence.~~
 
 ### 10) CI/CD (GitHub Actions)
 

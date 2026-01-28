@@ -49,6 +49,32 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## Local Development (later)
+## Local Development
 
-We’ll add concrete commands once each app is scaffolded and wired up (web dev server, API dev server, migrations, tests, etc.).
+### 1) Create your local env file
+
+```bash
+cp config/env.example .env
+```
+
+Notes:
+- `DATABASE_URL` is optional; Compose sets a default that points at the `db` service.
+- If you enable the storage profile, use `S3_ENDPOINT_URL=http://minio:9000` so the API can reach MinIO.
+- For non-Compose runs (local Python/Next dev servers), you can keep `S3_ENDPOINT_URL=http://localhost:9000`.
+
+### 2) Start dev services
+
+| Command | Services |
+|---------|----------|
+| `pnpm dev` | api, web |
+| `pnpm dev:db` | api, web, db |
+| `pnpm dev:full` | api, web, db, minio, mailhog |
+| `pnpm dev:down` | stop all |
+
+### 3) Useful URLs
+
+- Web app: `http://localhost:3000`
+- API health: `http://localhost:8000/health`
+- API docs: `http://localhost:8000/docs`
+- MailHog UI (email profile): `http://localhost:8025`
+- MinIO console (storage profile): `http://localhost:9001`

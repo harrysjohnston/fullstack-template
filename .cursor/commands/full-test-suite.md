@@ -30,7 +30,7 @@ Execution order is fixed: unit then e2e so the dev server is only started once f
 
 ## Relation to CI
 
-CI runs **web** (Biome → Vitest → Playwright) and **api** (Ruff check + Ruff format check → Pytest) in **parallel** jobs.  
+CI runs **web** (Biome → Vitest → Playwright) and **api** (Ruff check + Ruff format check → Pytest) in **parallel** jobs.
 `test:full` does **not** run lint. For a local run that matches CI checks, use **`pnpm test:ci`**: it runs `lint:ci` (web Biome + api Ruff check + api Ruff format check) then `test:full`.
 
 ## Optional commands
