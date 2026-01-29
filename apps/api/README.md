@@ -22,6 +22,22 @@ cd apps/api
 pip install -e ".[dev]"
 ```
 
+### First run (no Docker)
+
+```bash
+# From repository root
+cp config/env.example .env
+
+# Ensure DATABASE_URL or POSTGRES_* values match your local database
+# Then start the API from apps/api so .env is picked up
+cd apps/api
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Notes:
+- Settings read `.env` from the current working directory.
+- If you don't have Postgres locally, use `pnpm dev:db` from the repo root.
+
 ### Running Tests
 
 ```bash

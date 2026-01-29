@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/bootstrap [options]
+
+Sets up a fresh clone end-to-end:
+  - renames template identifiers
+  - copies config/env.example -> .env (if missing)
+  - installs JS + Python dependencies
+  - starts/stops Docker Compose profiles
+  - runs lint and tests
+
+Options:
+  --project-name <name>  Project slug for renaming (e.g. my-app)
+  --skip-rename      Skip template renaming
+  --skip-install     Skip dependency installation
+  --skip-compose     Skip Docker Compose startup/shutdown
+  --keep-compose     Leave Compose running after bootstrap
+  --skip-lint        Skip lint checks
+  --skip-tests       Skip tests
+  --profiles <list>  Comma-separated Compose profiles (default: db,storage,email)
+  -h, --help         Show this help
+EOF
+}
+
+SKIP_INSTALL=false
+SKIP_COMPOSE=false
+KEEP_COMPOSE=false
+SKIP_LINT=false
+SKIP_TESTS=false
+SKIP_RENAME=false
+PROJECT_NAME=""
+COMPOSE_PROFILES="db,storage,email"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-install)
+      SKIP_INSTALL=true
+      shift
+      ;;
+    --skip-compose)
+      SKIP_COMPOSE=true
+      shift
+      ;;
+    --keep-compose)
+      KEEP_COMPOSE=true
+      shift
+      ;;
+    --skip-lint)
+      SKIP_LINT=true
+      shift
+      ;;
+    --skip-tests)
+      SKIP_TESTS=true
+      shift
+      ;;
+    --skip-rename)
+      SKIP_RENAME=true
+      shift
+      ;;
+    --project-name)
+      PROJECT_NAME="${2:-}"
+      shift 2
+      ;;
+    --profiles)
+      COMPOSE_PROFILES="${2:-}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+log() {
+  printf "==> %s\n" "$1"
+}
+
+warn() {
+  printf "warning: %s\n" "$1" >&2
+}
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+cd "$ROOT_DIR"
+
+require_cmd python
+
+current_project_name="$(python - <<'PY'
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+path = Path("package.json")
+if not path.exists():
+    print("")
+else:
+    print(json.loads(path.read_text(encoding="utf-8")).get("name", ""))
+PY
+)"
+
+if [[ "$SKIP_RENAME" == "false" && "$current_project_name" == "fullstack-template" ]]; then
+  if [[ -z "$PROJECT_NAME" ]]; then
+    if [[ -t 0 ]]; then
+      read -r -p "Project name (kebab-case): " PROJECT_NAME
+    else
+      echo "Missing --project-name in non-interactive mode." >&2
+      exit 1
+    fi
+  fi
+  log "Renaming template to: $PROJECT_NAME"
+  ./scripts/rename-template "$PROJECT_NAME"
+else
+  if [[ "$SKIP_RENAME" == "true" ]]; then
+    log "Skipping template rename"
+  else
+    log "Template already renamed ($current_project_name)"
+  fi
+fi
+
+if [[ ! -f ".env" ]]; then
+  log "Copying config/env.example -> .env"
+  cp "config/env.example" ".env"
+else
+  log ".env already exists"
+fi
+
+if [[ -z "${VIRTUAL_ENV:-}" && -z "${PYENV_VERSION:-}" ]]; then
+  warn "No active Python virtual environment detected."
+  warn "Consider: pyenv activate fullstack-template"
+fi
+
+if [[ "$SKIP_INSTALL" == "false" ]]; then
+  require_cmd pnpm
+  require_cmd python
+  log "Installing JS dependencies"
+  pnpm install
+  log "Installing API dependencies"
+  python -m pip install -e "apps/api[dev]"
+fi
+
+compose_started=false
+compose_args=()
+IFS=',' read -r -a profile_list <<< "$COMPOSE_PROFILES"
+for profile in "${profile_list[@]}"; do
+  profile_trimmed="$(echo "$profile" | xargs)"
+  if [[ -n "$profile_trimmed" ]]; then
+    compose_args+=("--profile" "$profile_trimmed")
+  fi
+done
+
+cleanup_compose() {
+  if [[ "$compose_started" == "true" && "$KEEP_COMPOSE" == "false" ]]; then
+    log "Stopping Docker Compose"
+    docker compose "${compose_args[@]}" down
+  fi
+}
+
+if [[ "$SKIP_COMPOSE" == "false" ]]; then
+  require_cmd docker
+  log "Starting Docker Compose profiles: $COMPOSE_PROFILES"
+  docker compose "${compose_args[@]}" up -d --build
+  compose_started=true
+  if [[ "$KEEP_COMPOSE" == "false" ]]; then
+    trap cleanup_compose EXIT
+  fi
+fi
+
+if [[ "$SKIP_LINT" == "false" ]]; then
+  log "Running lint"
+  pnpm lint
+fi
+
+if [[ "$SKIP_TESTS" == "false" ]]; then
+  log "Running tests"
+  pnpm test
+fi
+
+if [[ "$SKIP_COMPOSE" == "false" && "$KEEP_COMPOSE" == "true" ]]; then
+  log "Compose left running (use: pnpm dev:down)"
+fi

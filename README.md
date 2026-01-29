@@ -29,13 +29,27 @@ This repo is a **fullstack template** designed for learning by building each pie
 ├─ .github/workflows/       # CI/CD workflows
 ├─ config/                  # Non-secret templates and local config docs
 ├─ docker-compose.yml       # Local dev services (Postgres, etc.)
-├─ Plans.md                 # Step-by-step build plan
+├─ Plans.md                 # Architecture decisions + alternatives (learning resource)
 └─ config/env.example       # Example environment variables
 ```
 
 ## How we’ll build this (high level)
 
-See `Plans.md` for the incremental roadmap and the decisions we’ll make at each step.
+See `Plans.md` for the architecture decisions, alternatives, and tradeoffs behind this template.
+
+## Using this as a template
+
+1) Bootstrap a fresh clone end-to-end (includes renaming):
+
+```bash
+./scripts/bootstrap --project-name your-project-name
+```
+
+Notes:
+- If you already renamed, pass `--skip-rename`.
+- Template customization checklist: `config/template-checklist.md`
+- If Docker is not available, use `--skip-compose` and run services locally.
+- If Python tooling fails, ensure your virtual environment is active.
 
 
 ## Deployment
