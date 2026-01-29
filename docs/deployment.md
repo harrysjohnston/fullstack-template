@@ -83,7 +83,15 @@ docker pull ${IMAGE_PREFIX}-web:latest
 
 ### 3. Prepare Environment
 
-Create a `.env.production` file:
+Create a `.env.production` file. You can generate one interactively:
+
+```bash
+# Interactive prompts for key deployment variables (optional; local dev does not need this)
+pnpm deploy:configure
+# or: ./scripts/configure-deploy
+```
+
+Or create `.env.production` manually:
 
 ```bash
 # Required settings

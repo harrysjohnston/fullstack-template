@@ -6,7 +6,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def parse_cors_origins(value: str | list[str]) -> list[str]:
+def parse_cors_origins(value: str | list[str] | None) -> list[str]:
     """Parse CORS origins from string (comma-separated or JSON) or list."""
     if isinstance(value, list):
         return value
@@ -50,14 +50,14 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8000, description="API server port")
 
     # CORS settings
-    cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000"],
+    cors_origins: str | list[str] = Field(
+        default="http://localhost:3000",
         description="Allowed CORS origins (comma-separated string or JSON array)",
     )
 
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def validate_cors_origins(cls, value: str | list[str]) -> list[str]:
+    def validate_cors_origins(cls, value: str | list[str] | None) -> list[str]:
         """Parse CORS origins from various formats."""
         return parse_cors_origins(value)
 

@@ -7,12 +7,16 @@ usage() {
   cat <<'EOF'
 Usage: scripts/bootstrap [options]
 
-Sets up a fresh clone end-to-end:
+Sets up a fresh clone for local development (or picks up where it left off):
   - renames template identifiers
   - copies config/env.example -> .env (if missing)
   - installs JS + Python dependencies
   - starts/stops Docker Compose profiles
   - runs lint and tests
+  - optionally prompts for deployment variables (scripts/configure-deploy)
+
+When run with no arguments and a TTY, prompts interactively for each option.
+Deployment variables are optional; local dev only needs .env from the example.
 
 Options:
   --project-name <name>  Project slug for renaming (e.g. my-app)
@@ -35,6 +39,7 @@ SKIP_TESTS=false
 SKIP_RENAME=false
 PROJECT_NAME=""
 COMPOSE_PROFILES="db,storage,email"
+HAD_ARGS=$#
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -82,6 +87,46 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Interactive mode: no args and a TTY → prompt for each option (optional values)
+INTERACTIVE=false
+if [[ $HAD_ARGS -eq 0 && -t 0 ]]; then
+  INTERACTIVE=true
+fi
+
+prompt_yn() {
+  local prompt="$1" default="$2"
+  local choice
+  if [[ "$default" == "y" ]]; then
+    read -r -p "${prompt} [Y/n]: " choice
+    choice="${choice:-y}"
+  else
+    read -r -p "${prompt} [y/N]: " choice
+    choice="${choice:-n}"
+  fi
+  [[ "$choice" =~ ^[yY] ]]
+}
+
+prompt_value() {
+  local -n ref=$1
+  local prompt="$2" default="$3"
+  read -r -p "${prompt} [${default}]: " ref
+  ref="${ref:-$default}"
+}
+
+if [[ "$INTERACTIVE" == "true" ]]; then
+  echo "Bootstrap options (press Enter to accept default, each step can be skipped if already done)."
+  echo ""
+  prompt_value PROJECT_NAME "Project name (kebab-case, leave empty to skip rename)" ""
+  prompt_yn "Skip template rename?" "n" && SKIP_RENAME=true || SKIP_RENAME=false
+  prompt_yn "Skip dependency install?" "n" && SKIP_INSTALL=true || SKIP_INSTALL=false
+  prompt_yn "Skip Docker Compose?" "n" && SKIP_COMPOSE=true || SKIP_COMPOSE=false
+  prompt_yn "Keep Compose running after bootstrap?" "n" && KEEP_COMPOSE=true || KEEP_COMPOSE=false
+  prompt_value COMPOSE_PROFILES "Compose profiles (comma-separated)" "db,storage,email"
+  prompt_yn "Skip lint?" "n" && SKIP_LINT=true || SKIP_LINT=false
+  prompt_yn "Skip tests?" "n" && SKIP_TESTS=true || SKIP_TESTS=false
+  echo ""
+fi
+
 log() {
   printf "==> %s\n" "$1"
 }
@@ -115,25 +160,24 @@ else:
 PY
 )"
 
-if [[ "$SKIP_RENAME" == "false" && "$current_project_name" == "fullstack-template" ]]; then
-  if [[ -z "$PROJECT_NAME" ]]; then
-    if [[ -t 0 ]]; then
-      read -r -p "Project name (kebab-case): " PROJECT_NAME
-    else
-      echo "Missing --project-name in non-interactive mode." >&2
-      exit 1
-    fi
+# --- Rename (pick up: skip if already renamed or no name given) ---
+if [[ "$SKIP_RENAME" == "true" ]]; then
+  log "Skipping template rename"
+elif [[ "$current_project_name" != "fullstack-template" ]]; then
+  log "Template already renamed ($current_project_name)"
+elif [[ -z "$PROJECT_NAME" ]]; then
+  if [[ "$INTERACTIVE" == "true" ]]; then
+    log "Skipping template rename (no project name)"
+  else
+    echo "Missing --project-name in non-interactive mode." >&2
+    exit 1
   fi
+else
   log "Renaming template to: $PROJECT_NAME"
   ./scripts/rename-template "$PROJECT_NAME"
-else
-  if [[ "$SKIP_RENAME" == "true" ]]; then
-    log "Skipping template rename"
-  else
-    log "Template already renamed ($current_project_name)"
-  fi
 fi
 
+# --- .env (pick up: skip if already present) ---
 if [[ ! -f ".env" ]]; then
   log "Copying config/env.example -> .env"
   cp "config/env.example" ".env"
@@ -141,11 +185,13 @@ else
   log ".env already exists"
 fi
 
+# --- Venv (pick up: skip if already present) ---
 VENV_DIR="$ROOT_DIR/.venv"
-
 if [[ ! -d "$VENV_DIR" ]]; then
   log "Creating virtual environment at .venv"
   uv venv "$VENV_DIR"
+else
+  log ".venv already exists"
 fi
 
 # Activate the virtual environment for subsequent commands
@@ -153,7 +199,14 @@ export VIRTUAL_ENV="$VENV_DIR"
 export PATH="$VENV_DIR/bin:$PATH"
 hash -r 2>/dev/null || true
 
-if [[ "$SKIP_INSTALL" == "false" ]]; then
+# --- Install (pick up: in interactive mode, offer to skip if deps look installed) ---
+RUN_INSTALL=true
+if [[ "$SKIP_INSTALL" == "false" && "$INTERACTIVE" == "true" && -d "node_modules" && -d "$VENV_DIR" ]]; then
+  if ! prompt_yn "Deps already installed. Reinstall?" "n"; then
+    RUN_INSTALL=false
+  fi
+fi
+if [[ "$SKIP_INSTALL" == "false" && "$RUN_INSTALL" == "true" ]]; then
   require_cmd pnpm
   log "Installing JS dependencies"
   pnpm install
@@ -165,6 +218,8 @@ if [[ "$SKIP_INSTALL" == "false" ]]; then
   else
     warn "No .git directory found; skipping pre-commit hook install"
   fi
+elif [[ "$SKIP_INSTALL" == "true" ]]; then
+  log "Skipping dependency install"
 fi
 
 compose_started=false
@@ -184,7 +239,16 @@ cleanup_compose() {
   fi
 }
 
-if [[ "$SKIP_COMPOSE" == "false" ]]; then
+# --- Compose (pick up: in interactive mode, offer to skip if already up) ---
+START_COMPOSE=true
+if [[ "$SKIP_COMPOSE" == "false" && "$INTERACTIVE" == "true" ]]; then
+  if docker compose "${compose_args[@]}" ps -q 2>/dev/null | grep -q .; then
+    if ! prompt_yn "Compose may already be running. Start anyway?" "n"; then
+      START_COMPOSE=false
+    fi
+  fi
+fi
+if [[ "$SKIP_COMPOSE" == "false" && "$START_COMPOSE" == "true" ]]; then
   require_cmd docker
   log "Starting Docker Compose profiles: $COMPOSE_PROFILES"
   docker compose "${compose_args[@]}" up -d --build
@@ -192,6 +256,8 @@ if [[ "$SKIP_COMPOSE" == "false" ]]; then
   if [[ "$KEEP_COMPOSE" == "false" ]]; then
     trap cleanup_compose EXIT
   fi
+elif [[ "$SKIP_COMPOSE" == "true" ]]; then
+  log "Skipping Docker Compose"
 fi
 
 if [[ "$SKIP_LINT" == "false" ]]; then
@@ -202,6 +268,13 @@ fi
 if [[ "$SKIP_TESTS" == "false" ]]; then
   log "Running tests"
   pnpm test
+fi
+
+# Optional: configure deployment variables (interactive only; local dev can skip)
+if [[ "$INTERACTIVE" == "true" ]]; then
+  if prompt_yn "Configure deployment variables (writes .env.production)?" "n"; then
+    ./scripts/configure-deploy
+  fi
 fi
 
 if [[ -d ".git" ]]; then
