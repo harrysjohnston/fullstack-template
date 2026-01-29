@@ -1,73 +1,135 @@
-# Fullstack Template (Learning-First)
+# Fullstack Template
 
-This repo is a **fullstack template** designed for learning by building each piece incrementally.
+A **fullstack template** to bootstrap a production-ready app: Next.js frontend, FastAPI backend, PostgreSQL, auth, file uploads, realtime (SSE), and email. Use it as a starting point and customize from there.
 
-## Stack
+## Quick start
 
-- **Web**: Next.js + TypeScript + **shadcn/ui**
-- **API**: Python **FastAPI** + JWT auth + REST
-- **DB**: PostgreSQL + **SQLModel**
-- **Realtime**: Server-Sent Events (SSE)
-- **File uploads**: Presigned URLs
-  - S3 by default
-  - Extensible adapters planned for Google Cloud Storage + Azure Blob (for learning)
-- **Emails**: Python + Jinja2 templates + MJML rendering
-- **Testing**: Vitest (unit) + Pytest (unit/integration) + Playwright (e2e)
-- **Tooling**: Biome (JS/TS lint+format) + Ruff (Python lint+format)
-- **Dev**: Docker Compose
-- **CI/CD**: GitHub Actions (PR checks + deploy pipeline)
+1. **Clone and bootstrap** (renames the template, installs deps, optional Docker):
 
-## Repo Layout
+   ```bash
+   git clone <this-repo> your-project && cd your-project
+   ./scripts/bootstrap --project-name your-project
+   ```
+
+2. **Run the stack** (from repo root):
+
+   ```bash
+   cp config/env.example .env   # if bootstrap didn't create it
+   pnpm dev:full                # api + web + db + MinIO + MailHog
+   ```
+
+3. Open **http://localhost:3000** (web) and **http://localhost:8000/docs** (API).
+
+For a non-interactive run, pass `--project-name your-app`. If Docker isn't available, use `--skip-compose` and run Postgres (and optionally MinIO/MailHog) locally. See [Local development](#local-development) below.
+
+## What’s included
+
+| Layer      | Tech |
+|-----------|------|
+| **Web**   | Next.js, TypeScript, shadcn/ui, Tailwind |
+| **API**   | FastAPI, SQLModel, JWT auth, REST |
+| **DB**    | PostgreSQL, Alembic migrations |
+| **Realtime** | Server-Sent Events (SSE) |
+| **Uploads** | Presigned URLs (S3; GCS/Azure adapters) |
+| **Email** | Jinja2 + MJML templates, dev sink (MailHog) |
+| **Testing** | Vitest (web unit), Pytest (API), Playwright (e2e) |
+| **Tooling** | Biome (JS/TS), Ruff (Python), pre-commit |
+| **Dev**   | Docker Compose (db, MinIO, MailHog profiles) |
+| **CI/CD** | GitHub Actions (lint, test, deploy) |
+
+## Repo layout
 
 ```
 .
-├─ apps/
-│  ├─ web/                  # Next.js + TS + shadcn/ui
-│  └─ api/                  # FastAPI + SQLModel
-├─ packages/                # Optional shared packages (types, utils) as we grow
-├─ infra/                   # Deployment + infra notes (S3/GCS/Azure, etc.)
-├─ .github/workflows/       # CI/CD workflows
-├─ config/                  # Non-secret templates and local config docs
-├─ docker-compose.yml       # Local dev services (Postgres, etc.)
-├─ Plans.md                 # Architecture decisions + alternatives (learning resource)
-└─ config/env.example       # Example environment variables
+├── apps/
+│   ├── web/          # Next.js + TypeScript + shadcn/ui
+│   └── api/          # FastAPI + SQLModel
+├── packages/         # Optional shared packages (types, utils)
+├── infra/            # Terraform (AWS), deployment notes
+├── .github/workflows/  # CI/CD
+├── config/           # env.example, template checklist
+├── docs/             # Deployment runbook
+├── docker-compose.yml
+├── architecture_decisions.md   # Design notes and tradeoffs
+└── scripts/          # bootstrap, configure-deploy, rename-template
 ```
-
-## How we’ll build this (high level)
-
-See `Plans.md` for the architecture decisions, alternatives, and tradeoffs behind this template.
 
 ## Using this as a template
 
-1) Bootstrap a fresh clone end-to-end (includes renaming):
+After cloning, run the bootstrap script so the repo is renamed and ready for your project:
 
 ```bash
 ./scripts/bootstrap --project-name your-project-name
 ```
 
-Notes:
-- If you already renamed, pass `--skip-rename`.
-- Template customization checklist: `config/template-checklist.md`
-- If Docker is not available, use `--skip-compose` and run services locally.
-- If Python tooling fails, ensure your virtual environment is active.
+- **Already renamed?** Use `--skip-rename`.
+- **No Docker?** Use `--skip-compose` and run services yourself.
+- **Python issues?** Activate the venv: `source .venv/bin/activate` (bootstrap creates `.venv` when needed).
 
+Post-bootstrap, work through **config/template-checklist.md** to set project name, JWT issuer/audience, email sender, domains, and Terraform/CI variables.
 
-## Deployment
+## Local development
 
-This project uses Docker containers with automated CI/CD via GitHub Actions. Images are published to GitHub Container Registry (GHCR) and can be deployed manually or to AWS.
+### Env file
 
-See **[docs/deployment.md](docs/deployment.md)** for:
-- Manual deployment with Docker
-- Database migration procedures
-- CI/CD pipeline details
-- Rollback procedures
-- AWS transition path (step 11)
+```bash
+cp config/env.example .env
+```
+
+- `DATABASE_URL` is optional when using Compose; the default points at the `db` service.
+- For the storage profile, set `S3_ENDPOINT_URL=http://minio:9000` (Compose) or `http://localhost:9000` (local MinIO).
+
+### Dev commands (from repo root)
+
+| Command | Services |
+|---------|----------|
+| `pnpm dev` | api, web |
+| `pnpm dev:db` | api, web, db |
+| `pnpm dev:full` | api, web, db, MinIO, MailHog |
+| `pnpm dev:down` | stop all |
+
+### URLs
+
+- Web: http://localhost:3000
+- API docs: http://localhost:8000/docs
+- API health: http://localhost:8000/health
+- MailHog (email): http://localhost:8025
+- MinIO console (uploads): http://localhost:9001
+
+## Testing
+
+```bash
+# All tests (web unit + e2e, API)
+pnpm test:full
+
+# Web only
+pnpm -C apps/web test
+pnpm -C apps/web e2e
+
+# API only (from repo root; activate venv first)
+source .venv/bin/activate
+python -m pytest -q -c apps/api/pyproject.toml apps/api
+
+# Lint
+pnpm lint
+```
+
+## Production builds
+
+Images are built on push to `main` via GitHub Actions. To build locally:
+
+```bash
+pnpm build:prod
+# Or individually:
+docker build -f apps/api/Dockerfile --target production -t fullstack-api:prod .
+docker build -f apps/web/Dockerfile --target production -t fullstack-web:prod .
+```
+
+See **docs/deployment.md** for runbooks, migrations, and AWS/CI/CD.
 
 ## Pre-commit hooks
 
-This repo uses [`pre-commit`](https://pre-commit.com/) to run **Ruff** (Python) and **Biome** (JS/TS) before commits.
-
-After you’ve installed dependencies for both apps, enable hooks:
+After installing dependencies, enable hooks so Ruff and Biome run before each commit:
 
 ```bash
 source .venv/bin/activate
@@ -76,73 +138,6 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## Local Development
+## Architecture and decisions
 
-### 1) Create your local env file
-
-```bash
-cp config/env.example .env
-```
-
-Notes:
-- `DATABASE_URL` is optional; Compose sets a default that points at the `db` service.
-- If you enable the storage profile, use `S3_ENDPOINT_URL=http://minio:9000` so the API can reach MinIO.
-- For non-Compose runs (local Python/Next dev servers), you can keep `S3_ENDPOINT_URL=http://localhost:9000`.
-
-### 2) Start dev services
-
-| Command | Services |
-|---------|----------|
-| `pnpm dev` | api, web |
-| `pnpm dev:db` | api, web, db |
-| `pnpm dev:full` | api, web, db, minio, mailhog |
-| `pnpm dev:down` | stop all |
-
-### 3) Useful URLs
-
-- Web app: `http://localhost:3000`
-- API health: `http://localhost:8000/health`
-- API docs: `http://localhost:8000/docs`
-- MailHog UI (email profile): `http://localhost:8025`
-- MinIO console (storage profile): `http://localhost:9001`
-
-## Testing
-
-```bash
-# Run all tests
-pnpm test:full
-
-# API tests
-cd apps/api
-python -m pytest
-
-# Web unit tests
-cd apps/web
-pnpm test
-
-# Web e2e tests
-cd apps/web
-pnpm e2e
-
-# Check code quality
-pnpm lint
-```
-
-## Production Builds
-
-Production Docker images are built automatically on push to `main` via GitHub Actions. To build locally:
-
-```bash
-# Build API production image
-docker build -f apps/api/Dockerfile --target production -t fullstack-api:prod .
-
-# Build Web production image
-docker build -f apps/web/Dockerfile --target production -t fullstack-web:prod .
-
-# Or build both at once
-pnpm build:prod
-
-# Test the images
-docker run -p 8000:8000 -e DATABASE_URL=sqlite:///./test.db -e JWT_SECRET=test fullstack-api:prod
-docker run -p 3000:3000 -e NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 fullstack-web:prod
-```
+**architecture_decisions.md** documents design choices, alternatives, and tradeoffs for this template.

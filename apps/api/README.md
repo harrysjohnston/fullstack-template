@@ -1,89 +1,75 @@
 # API (`apps/api`)
 
-FastAPI + SQLModel scaffold.
+FastAPI + SQLModel backend for the fullstack template. Use this app as the API when bootstrapping or extending the template.
 
-## What exists now
+## What’s included
 
-- `GET /health` endpoint
-- Pytest smoke tests with coverage
-- Ruff linting and formatting configured
-- Pre-commit hooks for code quality
+- **Health** – `GET /health`
+- **Auth** – JWT (access + refresh), login/register, protected routes
+- **Users** – CRUD, password hash, linked to auth
+- **SSE** – Server-Sent Events endpoint for realtime updates
+- **Uploads** – Presigned URL generation (S3; GCS/Azure adapters available)
+- **Email** – Jinja2 + MJML templates (welcome, password reset), configurable transport
+- **Database** – PostgreSQL via SQLModel, Alembic migrations
+- **Quality** – Pytest (unit + integration), Ruff, pre-commit
 
 ## Development
 
 ### Setup
 
-```bash
-# From repository root, activate the venv
-source .venv/bin/activate
+Use the repo’s virtual environment and install the API in editable mode with dev deps:
 
-# Install dependencies (including dev dependencies)
+```bash
+# From repository root
+source .venv/bin/activate
 uv pip install -e "apps/api[dev]"
 ```
 
-### First run (no Docker)
+If the venv doesn’t exist yet, create it from the root: `uv venv .venv` then activate and install (or run `./scripts/bootstrap`).
+
+### Run locally (no Docker)
 
 ```bash
 # From repository root
 cp config/env.example .env
+# Set DATABASE_URL or POSTGRES_* for your Postgres instance
 
-# Ensure DATABASE_URL or POSTGRES_* values match your local database
-# Then start the API from apps/api so .env is picked up
 cd apps/api
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Notes:
-- Settings read `.env` from the current working directory.
-- If you don't have Postgres locally, use `pnpm dev:db` from the repo root.
+Config reads `.env` from the current working directory. Without Postgres locally, use `pnpm dev:db` from the root to start the stack with the `db` profile.
 
-### Running Tests
+### Tests
 
 ```bash
-# Run all tests
+# From apps/api (with venv activated from root)
 pytest
 
-# Run with coverage report
+# With coverage
 pytest --cov=app --cov-report=html
 
-# Run only unit tests
+# Filter by marker
 pytest -m unit
-
-# Run tests excluding slow tests
 pytest -m "not slow"
 
-# Run a specific test file
+# Single file
 pytest tests/test_health.py
 ```
 
-### Linting and Formatting
+### Lint and format
 
 ```bash
-# Check code with Ruff
 ruff check app/ tests/
-
-# Format code with Ruff
 ruff format app/ tests/
-
-# Auto-fix linting issues
 ruff check --fix app/ tests/
 ```
 
-### Pre-commit Hooks
+Pre-commit is configured at the repo root; run `pre-commit install` from the root to run Ruff before each commit.
 
-Pre-commit hooks are configured at the repository root. To install:
+## Project layout
 
-```bash
-# From repository root
-pre-commit install
-```
-
-This will automatically run Ruff checks and formatting before each commit.
-
-## Later additions (planned)
-
-- Postgres wiring + migrations
-- JWT auth + protected routes
-- SSE endpoints
-- Presigned upload URL endpoints (S3 + GCS + Azure)
-- Email rendering pipeline (Jinja2 + MJML)
+- `app/` – FastAPI app, routers (auth, users, sse, uploads), models, schemas, storage adapters, email
+- `alembic/` – Migrations
+- `tests/` – Pytest tests
+- `scripts/migrate.py` – Migration runner for deployment
