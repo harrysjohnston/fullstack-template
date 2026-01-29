@@ -112,34 +112,34 @@ This plan is intentionally **incremental**: we’ll implement each piece one at 
 
 ### 11) Infrastructure as Code (Terraform + AWS)
 
-- Set up Terraform in `infra/terraform/`:
-  - Initialize Terraform with AWS provider
-  - Add `.tfvars.example` for environment-specific configs
-  - Add `.gitignore` for state files and secrets
-  - Document state management strategy (local vs remote backend)
-- Define core infrastructure modules:
-  - **VPC & Networking**: VPC, subnets (public/private), internet gateway, NAT gateway
-  - **Database**: RDS PostgreSQL (multi-AZ for prod, single-AZ for dev)
-  - **Compute**: ECS Fargate cluster + task definitions for API
-  - **Storage**: S3 buckets for file uploads (with lifecycle policies)
-  - **Secrets**: AWS Secrets Manager for DB credentials, JWT secrets
-  - **Load Balancing**: Application Load Balancer (ALB) for API
-- Add environment separation:
-  - `dev` workspace/environment
-  - `prod` workspace/environment
-  - Shared modules where appropriate
-- Add outputs for:
-  - API endpoint URLs
-  - Database connection info (via Secrets Manager)
-  - S3 bucket names
-- Document deployment workflow:
-  - Terraform plan/apply process
-  - State file management
-  - Environment variable injection from Terraform outputs
-- Add validation:
-  - `terraform validate` in CI
-  - `terraform fmt` check
-  - (optional) `terraform plan` on PRs (dry-run)
+- ~~Set up Terraform in `infra/terraform/`:~~
+  - ~~Initialize Terraform with AWS provider~~
+  - ~~Add `.tfvars.example` for environment-specific configs~~
+  - ~~Add `.gitignore` for state files and secrets~~
+  - ~~Document state management strategy (local vs remote backend)~~
+- ~~Define core infrastructure modules:~~
+  - ~~**VPC & Networking**: VPC, subnets (public/private), internet gateway, NAT gateway~~
+  - ~~**Database**: RDS PostgreSQL (multi-AZ for prod, single-AZ for dev)~~
+  - ~~**Compute**: ECS Fargate cluster + task definitions for API~~
+  - ~~**Storage**: S3 buckets for file uploads (with lifecycle policies)~~
+  - ~~**Secrets**: AWS Secrets Manager for DB credentials, JWT secrets~~
+  - ~~**Load Balancing**: Application Load Balancer (ALB) for API~~
+- ~~Add environment separation:~~
+  - ~~`dev` workspace/environment~~
+  - ~~`prod` workspace/environment~~
+  - ~~Shared modules where appropriate~~
+- ~~Add outputs for:~~
+  - ~~API endpoint URLs~~
+  - ~~Database connection info (via Secrets Manager)~~
+  - ~~S3 bucket names~~
+- ~~Document deployment workflow:~~
+  - ~~Terraform plan/apply process~~
+  - ~~State file management~~
+  - ~~Environment variable injection from Terraform outputs~~
+- ~~Add validation:~~
+  - ~~`terraform validate` in CI~~
+  - ~~`terraform fmt` check~~
+  - ~~(optional) `terraform plan` on PRs (dry-run)~~
 
 ### 12) Template finalization (GitHub Template)
 
