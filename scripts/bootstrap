@@ -99,9 +99,9 @@ require_cmd() {
 
 cd "$ROOT_DIR"
 
-require_cmd python
+require_cmd uv
 
-current_project_name="$(python - <<'PY'
+current_project_name="$(python3 - <<'PY'
 from __future__ import annotations
 
 import json
@@ -141,18 +141,30 @@ else
   log ".env already exists"
 fi
 
-if [[ -z "${VIRTUAL_ENV:-}" && -z "${PYENV_VERSION:-}" ]]; then
-  warn "No active Python virtual environment detected."
-  warn "Consider: pyenv activate fullstack-template"
+VENV_DIR="$ROOT_DIR/.venv"
+
+if [[ ! -d "$VENV_DIR" ]]; then
+  log "Creating virtual environment at .venv"
+  uv venv "$VENV_DIR"
 fi
+
+# Activate the virtual environment for subsequent commands
+export VIRTUAL_ENV="$VENV_DIR"
+export PATH="$VENV_DIR/bin:$PATH"
+hash -r 2>/dev/null || true
 
 if [[ "$SKIP_INSTALL" == "false" ]]; then
   require_cmd pnpm
-  require_cmd python
   log "Installing JS dependencies"
   pnpm install
   log "Installing API dependencies"
-  python -m pip install -e "apps/api[dev]"
+  uv pip install -e "apps/api[dev]"
+  if [[ -d ".git" ]]; then
+    log "Installing pre-commit hooks"
+    python -m pre_commit install --install-hooks || warn "pre-commit hook install failed"
+  else
+    warn "No .git directory found; skipping pre-commit hook install"
+  fi
 fi
 
 compose_started=false
@@ -190,6 +202,10 @@ fi
 if [[ "$SKIP_TESTS" == "false" ]]; then
   log "Running tests"
   pnpm test
+fi
+
+if [[ -d ".git" ]]; then
+  log "To create a development branch: ./scripts/init-branches"
 fi
 
 if [[ "$SKIP_COMPOSE" == "false" && "$KEEP_COMPOSE" == "true" ]]; then

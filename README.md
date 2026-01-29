@@ -70,7 +70,8 @@ This repo uses [`pre-commit`](https://pre-commit.com/) to run **Ruff** (Python) 
 After you’ve installed dependencies for both apps, enable hooks:
 
 ```bash
-python -m pip install -e "apps/api[dev]"
+source .venv/bin/activate
+uv pip install -e "apps/api[dev]"
 pre-commit install
 pre-commit run --all-files
 ```

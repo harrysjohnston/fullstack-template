@@ -14,12 +14,11 @@ FastAPI + SQLModel scaffold.
 ### Setup
 
 ```bash
-# Install dependencies (including dev dependencies)
-pip install -e ".[dev]"
+# From repository root, activate the venv
+source .venv/bin/activate
 
-# Or if using the virtualenv from the root
-cd apps/api
-pip install -e ".[dev]"
+# Install dependencies (including dev dependencies)
+uv pip install -e "apps/api[dev]"
 ```
 
 ### First run (no Docker)
