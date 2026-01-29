@@ -8,6 +8,8 @@
  * - Provides typed request/response handling
  */
 
+import { AUTH_ACCESS_TOKEN_KEY } from "./storage-keys";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 export interface ErrorDetail {
@@ -40,12 +42,16 @@ export interface RequestOptions extends RequestInit {
 
 /**
  * Builds a URL with query parameters.
+ * Path is appended to the base (so "/uploads" with base "http://localhost:8000/api/v1"
+ * becomes "http://localhost:8000/api/v1/uploads", not "http://localhost:8000/uploads").
  */
 function buildUrl(
   path: string,
   params?: Record<string, string | number | boolean | null | undefined>,
 ): string {
-  const url = new URL(path, API_BASE_URL);
+  const base = API_BASE_URL.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  const url = new URL(`${base}/${normalizedPath}`);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
@@ -132,8 +138,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
   }
 
-  // Add Authorization header if token is available (you can enhance this later)
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  // Add Authorization header if token is available
+  const token = typeof window !== "undefined" ? localStorage.getItem(AUTH_ACCESS_TOKEN_KEY) : null;
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }

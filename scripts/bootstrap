@@ -26,7 +26,8 @@ Options:
   --keep-compose     Leave Compose running after bootstrap
   --skip-lint        Skip lint checks
   --skip-tests       Skip tests
-  --profiles <list>  Comma-separated Compose profiles (default: db,storage,email)
+  --profiles <list>  Comma-separated Compose profiles (default: db,storage,email); interactive: Enter or 'all' = all
+  --verbose          Show full output from subcommands
   -h, --help         Show this help
 EOF
 }
@@ -39,6 +40,7 @@ SKIP_TESTS=false
 SKIP_RENAME=false
 PROJECT_NAME=""
 COMPOSE_PROFILES="db,storage,email"
+VERBOSE=false
 HAD_ARGS=$#
 
 while [[ $# -gt 0 ]]; do
@@ -75,6 +77,10 @@ while [[ $# -gt 0 ]]; do
       COMPOSE_PROFILES="${2:-}"
       shift 2
       ;;
+    --verbose)
+      VERBOSE=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -93,54 +99,168 @@ if [[ $HAD_ARGS -eq 0 && -t 0 ]]; then
   INTERACTIVE=true
 fi
 
+# --- Color helpers (respects NO_COLOR) ---
+color_enabled() { [[ -t 1 && -z "${NO_COLOR:-}" ]]; }
+green()  { color_enabled && printf '\033[32m%s\033[0m' "$1" || printf '%s' "$1"; }
+yellow() { color_enabled && printf '\033[33m%s\033[0m' "$1" || printf '%s' "$1"; }
+red()    { color_enabled && printf '\033[31m%s\033[0m' "$1" || printf '%s' "$1"; }
+dim()    { color_enabled && printf '\033[2m%s\033[0m' "$1" || printf '%s' "$1"; }
+blue()   { color_enabled && printf '\033[34m%s\033[0m' "$1" || printf '%s' "$1"; }
+cyan()   { color_enabled && printf '\033[36m%s\033[0m' "$1" || printf '%s' "$1"; }
+bold()   { color_enabled && printf '\033[1m%s\033[0m' "$1" || printf '%s' "$1"; }
+magenta() { color_enabled && printf '\033[35m%s\033[0m' "$1" || printf '%s' "$1"; }
+
+# --- Step counter for progress ---
+STEP=0
+TOTAL_STEPS=6
+
+step() {
+  ((STEP++)) || true
+  printf "\n%s %s\n" "$(cyan "[$STEP/$TOTAL_STEPS]")" "$(bold "$1")"
+}
+
+step_done() {
+  printf "      %s %s\n" "$(green "✔")" "$(green "done")"
+}
+
+step_skip() {
+  printf "      %s %s\n" "$(dim "○")" "$(dim "skipped")"
+}
+
+warn() {
+  printf "      %s %s\n" "$(yellow "⚠ warning:")" "$1" >&2
+}
+
+fail() {
+  printf "      %s %s\n" "$(red "✖ error:")" "$1" >&2
+  exit 1
+}
+
+info() {
+  printf "      %s %s\n" "$(dim "›")" "$(dim "$1")"
+}
+
+# --- Run command quietly, show output only on failure ---
+# Spinner runs in background to show activity
+spinner_pid=""
+
+start_spinner() {
+  if [[ "$VERBOSE" == "true" || ! -t 1 ]]; then
+    return
+  fi
+  local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+  local use_color=""
+  [[ -t 1 && -z "${NO_COLOR:-}" ]] && use_color=1
+  (
+    while true; do
+      for (( i=0; i<${#chars}; i++ )); do
+        if [[ -n "$use_color" ]]; then
+          printf "\r      \033[36m%s\033[0m " "${chars:$i:1}"
+        else
+          printf "\r      %s " "${chars:$i:1}"
+        fi
+        sleep 0.1
+      done
+    done
+  ) &
+  spinner_pid=$!
+}
+
+stop_spinner() {
+  if [[ -n "$spinner_pid" ]]; then
+    kill "$spinner_pid" 2>/dev/null || true
+    wait "$spinner_pid" 2>/dev/null || true
+    spinner_pid=""
+    printf "\r      \r"  # Clear spinner
+  fi
+}
+
+run_quiet() {
+  local tmpfile
+  tmpfile=$(mktemp)
+  if [[ "$VERBOSE" == "true" ]]; then
+    "$@"
+    return $?
+  fi
+  start_spinner
+  if "$@" >"$tmpfile" 2>&1; then
+    stop_spinner
+    rm -f "$tmpfile"
+    return 0
+  else
+    local exit_code=$?
+    stop_spinner
+    cat "$tmpfile" >&2
+    rm -f "$tmpfile"
+    return $exit_code
+  fi
+}
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    fail "Missing required command: $1"
+  fi
+}
+
+# --- Prompt helpers ---
 prompt_yn() {
   local prompt="$1" default="$2"
-  local choice
+  local choice hint
   if [[ "$default" == "y" ]]; then
-    read -r -p "${prompt} [Y/n]: " choice
+    hint="y/n, Enter=yes"
+    read -r -p "  $prompt [$hint]: " choice
     choice="${choice:-y}"
   else
-    read -r -p "${prompt} [y/N]: " choice
+    hint="y/n, Enter=no"
+    read -r -p "  $prompt [$hint]: " choice
     choice="${choice:-n}"
   fi
   [[ "$choice" =~ ^[yY] ]]
 }
 
 prompt_value() {
-  local -n ref=$1
-  local prompt="$2" default="$3"
-  read -r -p "${prompt} [${default}]: " ref
-  ref="${ref:-$default}"
+  local var_name="$1" prompt="$2" default="$3" value
+  if [[ -n "$default" ]]; then
+    read -r -p "  $prompt [Enter=$default]: " value
+  else
+    read -r -p "  $prompt: " value
+  fi
+  printf -v "$var_name" '%s' "${value:-$default}"
 }
 
+# --- Track what was done for summary ---
+SUMMARY_RENAME="skipped"
+SUMMARY_ENV="skipped"
+SUMMARY_VENV="skipped"
+SUMMARY_INSTALL="skipped"
+SUMMARY_COMPOSE="skipped"
+SUMMARY_LINT="skipped"
+SUMMARY_TESTS="skipped"
+
+# --- Interactive prompts ---
 if [[ "$INTERACTIVE" == "true" ]]; then
-  echo "Bootstrap options (press Enter to accept default, each step can be skipped if already done)."
   echo ""
-  prompt_value PROJECT_NAME "Project name (kebab-case, leave empty to skip rename)" ""
-  prompt_yn "Skip template rename?" "n" && SKIP_RENAME=true || SKIP_RENAME=false
+  printf "%s\n" "$(bold "Bootstrap Setup")"
+  echo ""
+  printf "%s\n" "$(cyan "Project Configuration")"
+  prompt_value PROJECT_NAME "Project name (kebab-case, empty to skip rename)" ""
+  echo ""
+  printf "%s\n" "$(cyan "Dependencies & Services")"
   prompt_yn "Skip dependency install?" "n" && SKIP_INSTALL=true || SKIP_INSTALL=false
   prompt_yn "Skip Docker Compose?" "n" && SKIP_COMPOSE=true || SKIP_COMPOSE=false
-  prompt_yn "Keep Compose running after bootstrap?" "n" && KEEP_COMPOSE=true || KEEP_COMPOSE=false
-  prompt_value COMPOSE_PROFILES "Compose profiles (comma-separated)" "db,storage,email"
+  if [[ "$SKIP_COMPOSE" == "false" ]]; then
+    prompt_yn "Keep Compose running after bootstrap?" "n" && KEEP_COMPOSE=true || KEEP_COMPOSE=false
+    prompt_value COMPOSE_PROFILES "Compose profiles ('all' = all containers)" "db,storage,email"
+    case "$(echo "$COMPOSE_PROFILES" | tr '[:upper:]' '[:lower:]' | xargs)" in
+      all) COMPOSE_PROFILES="db,storage,email" ;;
+    esac
+  fi
+  echo ""
+  printf "%s\n" "$(cyan "Verification")"
   prompt_yn "Skip lint?" "n" && SKIP_LINT=true || SKIP_LINT=false
   prompt_yn "Skip tests?" "n" && SKIP_TESTS=true || SKIP_TESTS=false
   echo ""
 fi
-
-log() {
-  printf "==> %s\n" "$1"
-}
-
-warn() {
-  printf "warning: %s\n" "$1" >&2
-}
-
-require_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1" >&2
-    exit 1
-  fi
-}
 
 cd "$ROOT_DIR"
 
@@ -160,38 +280,43 @@ else:
 PY
 )"
 
-# --- Rename (pick up: skip if already renamed or no name given) ---
+# --- Step 1: Rename ---
+step "Template rename"
 if [[ "$SKIP_RENAME" == "true" ]]; then
-  log "Skipping template rename"
+  step_skip
 elif [[ "$current_project_name" != "fullstack-template" ]]; then
-  log "Template already renamed ($current_project_name)"
+  printf "      %s already renamed to %s\n" "$(dim "›")" "$(green "$current_project_name")"
+  SUMMARY_RENAME="already done"
 elif [[ -z "$PROJECT_NAME" ]]; then
-  if [[ "$INTERACTIVE" == "true" ]]; then
-    log "Skipping template rename (no project name)"
-  else
-    echo "Missing --project-name in non-interactive mode." >&2
-    exit 1
-  fi
+  step_skip
 else
-  log "Renaming template to: $PROJECT_NAME"
-  ./scripts/rename-template "$PROJECT_NAME"
+  run_quiet ./scripts/rename-template "$PROJECT_NAME"
+  printf "      %s renamed to %s\n" "$(green "✔")" "$(green "$PROJECT_NAME")"
+  SUMMARY_RENAME="$PROJECT_NAME"
 fi
 
-# --- .env (pick up: skip if already present) ---
+# --- Step 2: .env ---
+step "Environment file"
 if [[ ! -f ".env" ]]; then
-  log "Copying config/env.example -> .env"
   cp "config/env.example" ".env"
+  info "created .env from example"
+  step_done
+  SUMMARY_ENV="created"
 else
-  log ".env already exists"
+  info ".env already exists"
+  SUMMARY_ENV="already exists"
 fi
 
-# --- Venv (pick up: skip if already present) ---
+# --- Step 3: Venv + Install ---
+step "Dependencies"
 VENV_DIR="$ROOT_DIR/.venv"
+
 if [[ ! -d "$VENV_DIR" ]]; then
-  log "Creating virtual environment at .venv"
-  uv venv "$VENV_DIR"
+  info "creating virtual environment..."
+  run_quiet uv venv "$VENV_DIR"
+  SUMMARY_VENV="created"
 else
-  log ".venv already exists"
+  SUMMARY_VENV="already exists"
 fi
 
 # Activate the virtual environment for subsequent commands
@@ -199,28 +324,34 @@ export VIRTUAL_ENV="$VENV_DIR"
 export PATH="$VENV_DIR/bin:$PATH"
 hash -r 2>/dev/null || true
 
-# --- Install (pick up: in interactive mode, offer to skip if deps look installed) ---
 RUN_INSTALL=true
 if [[ "$SKIP_INSTALL" == "false" && "$INTERACTIVE" == "true" && -d "node_modules" && -d "$VENV_DIR" ]]; then
-  if ! prompt_yn "Deps already installed. Reinstall?" "n"; then
+  if ! prompt_yn "Deps appear installed. Reinstall?" "n"; then
     RUN_INSTALL=false
   fi
 fi
+
 if [[ "$SKIP_INSTALL" == "false" && "$RUN_INSTALL" == "true" ]]; then
   require_cmd pnpm
-  log "Installing JS dependencies"
-  pnpm install
-  log "Installing API dependencies"
-  uv pip install -e "apps/api[dev]"
+  info "installing JS dependencies..."
+  run_quiet pnpm install
+  info "installing Python dependencies..."
+  run_quiet uv pip install -e "apps/api[dev]"
   if [[ -d ".git" ]]; then
-    log "Installing pre-commit hooks"
-    python -m pre_commit install --install-hooks || warn "pre-commit hook install failed"
-  else
-    warn "No .git directory found; skipping pre-commit hook install"
+    info "installing pre-commit hooks..."
+    run_quiet python -m pre_commit install --install-hooks || warn "pre-commit hook install failed"
   fi
+  step_done
+  SUMMARY_INSTALL="installed"
 elif [[ "$SKIP_INSTALL" == "true" ]]; then
-  log "Skipping dependency install"
+  step_skip
+else
+  info "using existing dependencies"
+  SUMMARY_INSTALL="already installed"
 fi
+
+# --- Step 4: Docker Compose ---
+step "Docker Compose"
 
 compose_started=false
 compose_args=()
@@ -233,13 +364,14 @@ for profile in "${profile_list[@]}"; do
 done
 
 cleanup_compose() {
+  stop_spinner  # Ensure spinner is stopped on cleanup
   if [[ "$compose_started" == "true" && "$KEEP_COMPOSE" == "false" ]]; then
-    log "Stopping Docker Compose"
-    docker compose "${compose_args[@]}" down
+    printf "\n"
+    info "stopping Docker Compose..."
+    run_quiet docker compose "${compose_args[@]}" down
   fi
 }
 
-# --- Compose (pick up: in interactive mode, offer to skip if already up) ---
 START_COMPOSE=true
 if [[ "$SKIP_COMPOSE" == "false" && "$INTERACTIVE" == "true" ]]; then
   if docker compose "${compose_args[@]}" ps -q 2>/dev/null | grep -q .; then
@@ -248,39 +380,99 @@ if [[ "$SKIP_COMPOSE" == "false" && "$INTERACTIVE" == "true" ]]; then
     fi
   fi
 fi
+
 if [[ "$SKIP_COMPOSE" == "false" && "$START_COMPOSE" == "true" ]]; then
   require_cmd docker
-  log "Starting Docker Compose profiles: $COMPOSE_PROFILES"
-  docker compose "${compose_args[@]}" up -d --build
+  info "starting profiles: $(cyan "$COMPOSE_PROFILES")..."
+  run_quiet docker compose "${compose_args[@]}" up -d --build
   compose_started=true
   if [[ "$KEEP_COMPOSE" == "false" ]]; then
     trap cleanup_compose EXIT
   fi
+  step_done
+  SUMMARY_COMPOSE="started"
 elif [[ "$SKIP_COMPOSE" == "true" ]]; then
-  log "Skipping Docker Compose"
+  step_skip
+else
+  info "using existing containers"
+  SUMMARY_COMPOSE="already running"
 fi
 
+# --- Step 5: Lint ---
+step "Lint"
 if [[ "$SKIP_LINT" == "false" ]]; then
-  log "Running lint"
-  pnpm lint
+  info "running linters..."
+  if run_quiet pnpm lint; then
+    step_done
+    SUMMARY_LINT="passed"
+  else
+    fail "Lint failed (run with --verbose for details)"
+  fi
+else
+  step_skip
 fi
 
+# --- Step 6: Tests ---
+step "Tests"
 if [[ "$SKIP_TESTS" == "false" ]]; then
-  log "Running tests"
-  pnpm test
+  info "running tests..."
+  if run_quiet pnpm test; then
+    step_done
+    SUMMARY_TESTS="passed"
+  else
+    fail "Tests failed (run with --verbose for details)"
+  fi
+else
+  step_skip
 fi
 
-# Optional: configure deployment variables (interactive only; local dev can skip)
+# --- Optional: configure deployment variables ---
 if [[ "$INTERACTIVE" == "true" ]]; then
+  echo ""
   if prompt_yn "Configure deployment variables (writes .env.production)?" "n"; then
     ./scripts/configure-deploy
   fi
 fi
 
-if [[ -d ".git" ]]; then
-  log "To create a development branch: ./scripts/init-branches"
-fi
+# --- Summary ---
+echo ""
+printf "%s %s\n" "$(green "✔")" "$(bold "Bootstrap Complete")"
+echo ""
 
-if [[ "$SKIP_COMPOSE" == "false" && "$KEEP_COMPOSE" == "true" ]]; then
-  log "Compose left running (use: pnpm dev:down)"
+format_status() {
+  case "$1" in
+    passed|created|installed|started)
+      green "$1"
+      ;;
+    skipped)
+      dim "$1"
+      ;;
+    "already exists"|"already done"|"already installed"|"already running")
+      dim "$1"
+      ;;
+    *)
+      printf '%s' "$1"
+      ;;
+  esac
+}
+
+printf "  %s %s\n" "$(dim "Rename:")" "$(format_status "$SUMMARY_RENAME")"
+printf "  %s %s\n" "$(dim "Env file:")" "$(format_status "$SUMMARY_ENV")"
+printf "  %s %s\n" "$(dim "Venv:")" "$(format_status "$SUMMARY_VENV")"
+printf "  %s %s\n" "$(dim "Install:")" "$(format_status "$SUMMARY_INSTALL")"
+printf "  %s %s\n" "$(dim "Compose:")" "$(format_status "$SUMMARY_COMPOSE")"
+printf "  %s %s\n" "$(dim "Lint:")" "$(format_status "$SUMMARY_LINT")"
+printf "  %s %s\n" "$(dim "Tests:")" "$(format_status "$SUMMARY_TESTS")"
+echo ""
+
+# --- Next steps ---
+printf "%s\n" "$(bold "Next Steps")"
+if [[ -d ".git" ]]; then
+  printf "  %s Create a development branch: %s\n" "$(cyan "›")" "$(cyan "./scripts/init-branches")"
 fi
+if [[ "$SKIP_COMPOSE" == "false" && "$KEEP_COMPOSE" == "true" ]]; then
+  printf "  %s Compose is running (stop with: %s)\n" "$(cyan "›")" "$(cyan "pnpm dev:down")"
+else
+  printf "  %s Start development: %s\n" "$(cyan "›")" "$(cyan "pnpm dev")"
+fi
+echo ""
