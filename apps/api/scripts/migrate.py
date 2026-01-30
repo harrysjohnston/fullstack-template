@@ -89,9 +89,9 @@ def get_pending_migrations(alembic_cfg: Config) -> list[str]:
         # Get all revisions from current to head
         if current_rev is None:
             # No migrations applied yet
-            pending = list(script.iterate_revisions("base", "head"))
+            pending = list(script.iterate_revisions("head", "base"))
         else:
-            pending = list(script.iterate_revisions(current_rev, "head"))
+            pending = list(script.iterate_revisions("head", current_rev))
 
         # Filter out the current revision
         return [rev for rev in pending if rev.revision != current_rev]
