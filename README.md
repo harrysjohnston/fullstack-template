@@ -88,6 +88,19 @@ cp config/env.example .env
 | `pnpm dev:full` | api, web, db, MinIO, MailHog |
 | `pnpm dev:down` | stop all |
 
+### Database migrations
+
+Migrations run automatically via Docker Compose when the `db` profile is active. The `migrate` service waits for Postgres to be healthy, applies pending migrations, then exits. The API waits for migrations to complete before starting.
+
+To run migrations manually (e.g., when not using Docker):
+
+```bash
+source .venv/bin/activate
+python apps/api/scripts/migrate.py upgrade --no-backup-check
+```
+
+For production deployments, omit `--no-backup-check` to require backup confirmation before applying migrations.
+
 ### URLs
 
 - Web: http://localhost:3000

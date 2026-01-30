@@ -389,6 +389,8 @@ if [[ "$SKIP_COMPOSE" == "false" && "$START_COMPOSE" == "true" ]]; then
   if [[ "$KEEP_COMPOSE" == "false" ]]; then
     trap cleanup_compose EXIT
   fi
+  # Note: migrations run automatically via the 'migrate' service in docker-compose
+  # when the db profile is active
   step_done
   SUMMARY_COMPOSE="started"
 elif [[ "$SKIP_COMPOSE" == "true" ]]; then

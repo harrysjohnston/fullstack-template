@@ -65,7 +65,7 @@ if [[ "$PROJECT_NAME" == "fullstack-template" ]]; then
   exit 1
 fi
 
-python - "$ROOT_DIR" "$PROJECT_NAME" "$DRY_RUN" <<'PY'
+python3 - "$ROOT_DIR" "$PROJECT_NAME" "$DRY_RUN" <<'PY'
 from __future__ import annotations
 
 import sys
