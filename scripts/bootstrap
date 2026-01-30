@@ -391,6 +391,44 @@ if [[ "$SKIP_COMPOSE" == "false" && "$START_COMPOSE" == "true" ]]; then
   fi
   # Note: migrations run automatically via the 'migrate' service in docker-compose
   # when the db profile is active
+
+  # Create S3/MinIO bucket if storage profile is active
+  if echo "$COMPOSE_PROFILES" | grep -q "storage"; then
+    info "waiting for MinIO to be ready..."
+    # Wait for MinIO container to be running and healthy (max 60 seconds)
+    max_wait=60
+    waited=0
+    minio_ready=false
+    while [[ $waited -lt $max_wait ]]; do
+      # Check if container exists and is running
+      if docker compose "${compose_args[@]}" ps minio --status running --format json 2>/dev/null | grep -q minio; then
+        # Try to connect to verify it's actually ready
+        if docker compose "${compose_args[@]}" exec -T minio curl -f http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+          minio_ready=true
+          break
+        fi
+      fi
+      sleep 2
+      waited=$((waited + 2))
+    done
+
+    if [[ "$minio_ready" == "true" ]]; then
+      info "creating S3/MinIO bucket..."
+      # Use venv Python if available, otherwise system python3
+      python_cmd="python3"
+      if [[ -n "${VIRTUAL_ENV:-}" && -f "$VIRTUAL_ENV/bin/python" ]]; then
+        python_cmd="$VIRTUAL_ENV/bin/python"
+      fi
+      if run_quiet "$python_cmd" "$ROOT_DIR/scripts/create-s3-bucket"; then
+        info "bucket ready"
+      else
+        warn "bucket creation failed (may already exist or need manual setup)"
+      fi
+    else
+      warn "MinIO did not become ready within ${max_wait}s, skipping bucket creation"
+    fi
+  fi
+
   step_done
   SUMMARY_COMPOSE="started"
 elif [[ "$SKIP_COMPOSE" == "true" ]]; then

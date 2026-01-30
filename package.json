@@ -26,7 +26,8 @@
     "test:full": "echo '> Web unit' && pnpm -C apps/web test && echo '> Web e2e' && pnpm -C apps/web e2e && echo '> API' && python -m pytest -q -c apps/api/pyproject.toml apps/api",
     "test:ci": "pnpm lint:ci && pnpm typecheck && pnpm test:full",
     "fix": "./scripts/precommit-fix",
-    "deploy:configure": "./scripts/configure-deploy"
+    "deploy:configure": "./scripts/configure-deploy",
+    "storage:setup": "python3 scripts/create-s3-bucket"
   },
   "dependencies": {
     "next": "16.2.0-canary.4"
