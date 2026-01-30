@@ -10,17 +10,20 @@ describe("HomePage", () => {
 
   it("displays the app title", () => {
     render(<HomePage />);
-    expect(screen.getByText("fullstack-template")).toBeInTheDocument();
+    // Title is split across elements: "Your files, " and "archived"
+    expect(screen.getByText("Your files,")).toBeInTheDocument();
+    expect(screen.getByText("archived")).toBeInTheDocument();
   });
 
   it("displays the description text", () => {
     render(<HomePage />);
-    expect(screen.getByText(/Next.js \+ TypeScript scaffold/i)).toBeInTheDocument();
+    expect(screen.getByText(/A minimal, secure space for your uploads/i)).toBeInTheDocument();
   });
 
-  it("renders the buttons", () => {
+  it("renders the auth buttons", () => {
     render(<HomePage />);
-    expect(screen.getByText("Get started")).toBeInTheDocument();
-    expect(screen.getByText("View docs")).toBeInTheDocument();
+    // There are multiple "Sign in" buttons, so use getAllByText
+    expect(screen.getAllByText("Sign in").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Create account").length).toBeGreaterThan(0);
   });
 });

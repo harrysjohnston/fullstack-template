@@ -10,7 +10,7 @@ Requires-Dist: psycopg[binary]>=3.2
 Requires-Dist: alembic>=1.13
 Requires-Dist: python-jose[cryptography]>=3.3
 Requires-Dist: passlib[bcrypt]>=1.7.4
-Requires-Dist: bcrypt<5
+Requires-Dist: bcrypt<4.1,>=4.0
 Requires-Dist: jinja2>=3.1
 Requires-Dist: mjml
 Requires-Dist: pydantic-settings>=2.5
