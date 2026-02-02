@@ -41,6 +41,12 @@ variable "desired_count" {
   default     = 1
 }
 
+variable "ignore_desired_count" {
+  description = "Ignore desired_count changes to allow manual scaling"
+  type        = bool
+  default     = true
+}
+
 variable "api_image" {
   description = "Docker image for the API service"
   type        = string
@@ -49,6 +55,12 @@ variable "api_image" {
 variable "web_image" {
   description = "Docker image for the Web service"
   type        = string
+}
+
+variable "ghcr_credentials_arn" {
+  description = "Secrets Manager ARN with GHCR credentials for private pulls"
+  type        = string
+  default     = ""
 }
 
 variable "api_target_group_arn" {

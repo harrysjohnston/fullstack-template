@@ -33,3 +33,16 @@ variable "s3_secret_access_key" {
   default     = ""
   sensitive   = true
 }
+
+variable "ghcr_username" {
+  description = "GHCR username for private image pulls"
+  type        = string
+  default     = ""
+}
+
+variable "ghcr_token" {
+  description = "GHCR token for private image pulls"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

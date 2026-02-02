@@ -7,6 +7,14 @@
 # ECS Cluster
 # -----------------------------------------------------------------------------
 
+locals {
+  repository_credentials = var.ghcr_credentials_arn != "" ? {
+    repositoryCredentials = {
+      credentialsParameter = var.ghcr_credentials_arn
+    }
+  } : {}
+}
+
 resource "aws_ecs_cluster" "main" {
   name = "${var.name_prefix}-cluster"
 
@@ -165,7 +173,7 @@ resource "aws_ecs_task_definition" "api" {
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
-    {
+    merge({
       name      = "api"
       image     = var.api_image
       essential = true
@@ -221,7 +229,7 @@ resource "aws_ecs_task_definition" "api" {
         retries     = 3
         startPeriod = 60
       }
-    }
+    }, local.repository_credentials)
   ])
 
   tags = {
@@ -243,7 +251,7 @@ resource "aws_ecs_task_definition" "web" {
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
-    {
+    merge({
       name      = "web"
       image     = var.web_image
       essential = true
@@ -277,7 +285,7 @@ resource "aws_ecs_task_definition" "web" {
         retries     = 3
         startPeriod = 60
       }
-    }
+    }, local.repository_credentials)
   ])
 
   tags = {
@@ -321,7 +329,7 @@ resource "aws_ecs_service" "api" {
   }
 
   lifecycle {
-    ignore_changes = [desired_count]
+    ignore_changes = var.ignore_desired_count ? [desired_count] : []
   }
 }
 
@@ -361,6 +369,6 @@ resource "aws_ecs_service" "web" {
   }
 
   lifecycle {
-    ignore_changes = [desired_count]
+    ignore_changes = var.ignore_desired_count ? [desired_count] : []
   }
 }

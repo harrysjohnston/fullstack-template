@@ -32,6 +32,10 @@ db_password = "CHANGE_ME_use_a_strong_password"
 api_image = "ghcr.io/OWNER/fullstack-template-api:latest"
 web_image = "ghcr.io/OWNER/fullstack-template-web:latest"
 
+# Optional: GHCR credentials for private image pulls
+# ghcr_username = "your-github-username"
+# ghcr_token    = "ghp_..."
+
 # -----------------------------------------------------------------------------
 # Storage
 # -----------------------------------------------------------------------------
@@ -50,6 +54,10 @@ s3_bucket_name = "your-unique-bucket-name-uploads"
 jwt_secret   = "CHANGE_ME_use_a_long_random_string"
 jwt_issuer   = "fullstack-template"
 jwt_audience = "fullstack-template"
+
+# Optional: set to 0 to pause ECS services via Terraform
+# ecs_desired_count_override = 0
+# ecs_ignore_desired_count   = false
 
 # -----------------------------------------------------------------------------
 # CORS / Domain

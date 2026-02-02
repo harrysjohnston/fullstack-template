@@ -2,9 +2,16 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Deployment environment'
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
       skip_migration:
         description: 'Skip database migration'
         required: false
@@ -23,12 +30,22 @@ jobs:
       contents: read
       packages: write
     outputs:
-      api_image: ${{ steps.meta-api.outputs.tags }}
-      web_image: ${{ steps.meta-web.outputs.tags }}
-      version: ${{ steps.meta-api.outputs.version }}
+      api_image: ${{ steps.image-vars.outputs.api_image }}
+      web_image: ${{ steps.image-vars.outputs.web_image }}
+      image_tag: ${{ steps.image-vars.outputs.image_tag }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: image-vars
+        run: |
+          image_tag="${GITHUB_REF_NAME}-${GITHUB_SHA::7}"
+          api_image="${REGISTRY}/${IMAGE_PREFIX}-api:${image_tag}"
+          web_image="${REGISTRY}/${IMAGE_PREFIX}-web:${image_tag}"
+          echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
+          echo "api_image=${api_image}" >> "$GITHUB_OUTPUT"
+          echo "web_image=${web_image}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -38,7 +55,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata for API
         id: meta-api
@@ -46,9 +63,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api
           tags: |
-            type=sha,prefix={{branch}}-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.image-vars.outputs.image_tag }}
             type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push API image
         uses: docker/build-push-action@v5
@@ -68,9 +85,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-web
           tags: |
-            type=sha,prefix={{branch}}-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.image-vars.outputs.image_tag }}
             type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Web image
         uses: docker/build-push-action@v5
@@ -84,49 +101,128 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  migrate:
-    name: Database Migration
+  deploy:
+    name: Deploy to AWS
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: ${{ !inputs.skip_migration }}
+    environment: ${{ inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      TF_VAR_s3_bucket_name: ${{ vars.S3_BUCKET_NAME }}
+      TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
+      TF_VAR_ghcr_username: ${{ secrets.GHCR_USERNAME }}
+      TF_VAR_ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set optional Terraform vars
+        run: |
+          if [ -n "${{ vars.CORS_ORIGINS }}" ]; then
+            printf '%s\n' "TF_VAR_cors_origins=${{ vars.CORS_ORIGINS }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ vars.ENABLE_HTTPS }}" ]; then
+            printf '%s\n' "TF_VAR_enable_https=${{ vars.ENABLE_HTTPS }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ secrets.CERTIFICATE_ARN }}" ]; then
+            printf '%s\n' "TF_VAR_certificate_arn=${{ secrets.CERTIFICATE_ARN }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ vars.EMAIL_FROM_ADDRESS }}" ]; then
+            printf '%s\n' "TF_VAR_email_from_address=${{ vars.EMAIL_FROM_ADDRESS }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ vars.EMAIL_FROM_NAME }}" ]; then
+            printf '%s\n' "TF_VAR_email_from_name=${{ vars.EMAIL_FROM_NAME }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ vars.EMAIL_WEB_BASE_URL }}" ]; then
+            printf '%s\n' "TF_VAR_email_web_base_url=${{ vars.EMAIL_WEB_BASE_URL }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ vars.NEXT_PUBLIC_API_URL }}" ]; then
+            printf '%s\n' "TF_VAR_next_public_api_url=${{ vars.NEXT_PUBLIC_API_URL }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          python-version: "3.12"
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
 
-      - name: Install dependencies
-        working-directory: apps/api
-        run: uv pip install --system -e .
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init -input=false
 
-      - name: Run migration safety checks (dry-run)
-        working-directory: apps/api
-        env:
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      - name: Select Terraform workspace
+        id: workspace
+        working-directory: infra/terraform
         run: |
-          python scripts/migrate.py upgrade --dry-run
+          if [ "${{ inputs.environment }}" = "production" ] || [ "${GITHUB_REF_NAME}" = "main" ]; then
+            workspace="prod"
+          else
+            workspace="staging"
+          fi
+          echo "tf_workspace=${workspace}" >> "$GITHUB_OUTPUT"
+          terraform workspace select "$workspace" || terraform workspace new "$workspace"
 
-      - name: Run migrations
-        working-directory: apps/api
-        env:
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      - name: Terraform apply
+        working-directory: infra/terraform
         run: |
-          python scripts/migrate.py upgrade --no-backup-check
-        # Note: --no-backup-check is used because backup verification
-        # should be handled by your database provider's automated backups
-        # For AWS RDS, enable automated backups in your Terraform config
+          terraform apply -auto-approve \
+            -var "api_image=${{ needs.build-and-push.outputs.api_image }}" \
+            -var "web_image=${{ needs.build-and-push.outputs.web_image }}"
+
+      - name: Read ECS outputs
+        id: ecs
+        working-directory: infra/terraform
+        run: |
+          echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "task_def=$(terraform output -raw api_task_definition_arn)" >> "$GITHUB_OUTPUT"
+          echo "security_group=$(terraform output -raw ecs_security_group_id)" >> "$GITHUB_OUTPUT"
+          subnets=$(terraform output -json private_subnet_ids | jq -r 'join(",")')
+          echo "subnets=${subnets}" >> "$GITHUB_OUTPUT"
+
+      - name: Run database migrations (ECS task)
+        if: ${{ inputs.skip_migration != true }}
+        run: |
+          task_arn=$(aws ecs run-task \
+            --cluster "${{ steps.ecs.outputs.cluster }}" \
+            --task-definition "${{ steps.ecs.outputs.task_def }}" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ steps.ecs.outputs.subnets }}],securityGroups=[${{ steps.ecs.outputs.security_group }}],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["python","scripts/migrate.py","upgrade","--no-backup-check"]}]}' \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          if [ -z "$task_arn" ] || [ "$task_arn" = "None" ]; then
+            echo "Migration task failed to start."
+            exit 1
+          fi
+
+          aws ecs wait tasks-stopped \
+            --cluster "${{ steps.ecs.outputs.cluster }}" \
+            --tasks "$task_arn"
+
+          exit_code=$(aws ecs describe-tasks \
+            --cluster "${{ steps.ecs.outputs.cluster }}" \
+            --tasks "$task_arn" \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+
+          if [ "$exit_code" != "0" ]; then
+            echo "Migration task failed with exit code $exit_code"
+            exit 1
+          fi
 
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-and-push, migrate]
-    if: always() && needs.build-and-push.result == 'success'
+    needs: [build-and-push, deploy]
+    if: always() && needs.build-and-push.result == 'success' && (github.ref_name == 'main' || inputs.environment == 'production')
     permissions:
       contents: write
 
@@ -141,6 +237,7 @@ jobs:
           **Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           **Commit:** ${{ github.sha }}
           **Branch:** ${{ github.ref_name }}
+          **Environment:** ${{ inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
 
           ## Docker Images
 
@@ -154,27 +251,10 @@ jobs:
           ${{ needs.build-and-push.outputs.web_image }}
           \`\`\`
 
-          ## Migration Status
+          ## Deployment Notes
 
-          ${{ needs.migrate.result == 'success' && '✅ Database migrations applied successfully' || needs.migrate.result == 'skipped' && '⏭️ Migrations skipped' || '❌ Migration failed - review logs' }}
-
-          ## Manual Deployment Commands
-
-          To deploy these images manually:
-
-          \`\`\`bash
-          # Pull the images
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api:latest
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-web:latest
-
-          # Run with docker-compose or your orchestrator
-          # See docs/deployment.md for details
-          \`\`\`
-
-          ## Next Steps for AWS (Step 11)
-
-          These images are ready to be deployed to AWS ECS Fargate.
-          When implementing Terraform (step 11), reference these image URIs.
+          - Images built from tag: ${{ needs.build-and-push.outputs.image_tag }}
+          - Migrations: ${{ inputs.skip_migration && 'Skipped' || 'Ran as ECS task' }}
           EOF
 
       - name: Create GitHub Release

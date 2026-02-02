@@ -82,6 +82,34 @@ resource "aws_secretsmanager_secret_version" "app" {
 }
 
 # -----------------------------------------------------------------------------
+# GHCR Credentials (optional)
+# -----------------------------------------------------------------------------
+
+resource "aws_secretsmanager_secret" "ghcr" {
+  count = var.ghcr_token != "" ? 1 : 0
+
+  name        = "/${var.environment}/ghcr"
+  description = "GHCR credentials for private image pulls (${var.name_prefix})"
+
+  recovery_window_in_days = var.environment == "prod" ? 30 : 0
+
+  tags = {
+    Name        = "${var.name_prefix}-ghcr-secret"
+    Environment = var.environment
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "ghcr" {
+  count = var.ghcr_token != "" ? 1 : 0
+
+  secret_id = aws_secretsmanager_secret.ghcr[0].id
+  secret_string = jsonencode({
+    username = var.ghcr_username
+    password = var.ghcr_token
+  })
+}
+
+# -----------------------------------------------------------------------------
 # IAM Policy for Reading Secrets
 # -----------------------------------------------------------------------------
 
@@ -95,11 +123,12 @@ data "aws_iam_policy_document" "read_secrets" {
       "secretsmanager:DescribeSecret"
     ]
 
-    resources = [
+    resources = compact([
       aws_secretsmanager_secret.database.arn,
       aws_secretsmanager_secret.jwt.arn,
-      aws_secretsmanager_secret.app.arn
-    ]
+      aws_secretsmanager_secret.app.arn,
+      var.ghcr_token != "" ? aws_secretsmanager_secret.ghcr[0].arn : ""
+    ])
   }
 }
 

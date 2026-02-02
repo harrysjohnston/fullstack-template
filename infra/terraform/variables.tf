@@ -69,6 +69,39 @@ variable "web_image" {
 }
 
 # -----------------------------------------------------------------------------
+# Registry Credentials (optional)
+# -----------------------------------------------------------------------------
+
+variable "ghcr_username" {
+  description = "GitHub Container Registry username (for private image pulls)"
+  type        = string
+  default     = ""
+}
+
+variable "ghcr_token" {
+  description = "GitHub Container Registry token (for private image pulls)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# -----------------------------------------------------------------------------
+# ECS Scaling Overrides
+# -----------------------------------------------------------------------------
+
+variable "ecs_desired_count_override" {
+  description = "Optional override for ECS desired task count (set to 0 to pause)"
+  type        = number
+  default     = null
+}
+
+variable "ecs_ignore_desired_count" {
+  description = "Ignore desired_count changes so manual scaling isn't reverted"
+  type        = bool
+  default     = true
+}
+
+# -----------------------------------------------------------------------------
 # Storage
 # -----------------------------------------------------------------------------
 

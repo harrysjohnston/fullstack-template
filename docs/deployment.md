@@ -15,18 +15,18 @@ This guide covers deployment strategies for the fullstack template, from manual 
 
 ## Overview
 
-The deployment strategy uses Docker containers published to GitHub Container Registry (GHCR). This approach provides:
+The deployment strategy uses Docker containers published to GitHub Container Registry (GHCR) and GitHub Actions to deploy to AWS ECS for staging and production. Manual Docker deployment remains available for self-hosting. This approach provides:
 
 - **Portability**: Same images work locally, on any cloud, or on-premise
 - **Consistency**: Build once, deploy anywhere
 - **Traceability**: Images tagged with git commit SHA
-- **AWS-ready**: Direct path to ECS Fargate deployment (step 11)
+- **AWS-ready**: Automated ECS Fargate deployments for staging and production
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              GitHub Actions                      │
+│               GitHub Actions                     │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │
 │  │  Build   │→ │   Test   │→ │  Push GHCR   │ │
 │  └──────────┘  └──────────┘  └──────────────┘ │
@@ -42,9 +42,15 @@ The deployment strategy uses Docker containers published to GitHub Container Reg
 ┌─────────────┐              ┌──────────────┐
 │   Manual    │              │     AWS      │
 │ Deployment  │              │  ECS/Fargate │
-│ (Step 10)   │              │  (Step 11)   │
+│ (Optional)  │              │ (Stg + Prod) │
 └─────────────┘              └──────────────┘
 ```
+
+### Branch Flow
+
+- `development` → `staging` → `main`
+- Pushes to `staging` deploy to the staging environment
+- Pushes to `main` deploy to production
 
 ## Prerequisites
 
@@ -58,8 +64,23 @@ The deployment strategy uses Docker containers published to GitHub Container Reg
 ### For GitHub Actions
 
 - GitHub repository with Actions enabled
-- GitHub Personal Access Token (PAT) with `write:packages` permission (automatic via `GITHUB_TOKEN`)
-- Production database URL set as repository secret
+- GitHub Environments: `staging` and `production`
+- AWS OIDC role per environment (recommended) with ECS, RDS, Secrets Manager, and IAM PassRole permissions
+- Required environment secrets:
+  - `AWS_ROLE_ARN`
+  - `DB_PASSWORD`
+  - `JWT_SECRET`
+- Required environment variables:
+  - `S3_BUCKET_NAME`
+- Optional (recommended) environment secrets/vars:
+  - `GHCR_TOKEN` (for private GHCR pulls and pushes)
+  - `GHCR_USERNAME` (for private GHCR pulls)
+  - `CERTIFICATE_ARN` (if enabling HTTPS)
+  - `CORS_ORIGINS` (JSON array string, e.g. `["https://staging.example.com"]`)
+  - `ENABLE_HTTPS` (`true` or `false`)
+  - `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_WEB_BASE_URL`
+  - `NEXT_PUBLIC_API_URL`
+  - `AWS_REGION` (defaults to `us-east-1`)
 
 ## Manual Deployment
 
@@ -233,6 +254,27 @@ python scripts/migrate.py upgrade --dry-run
 python scripts/migrate.py upgrade
 ```
 
+#### GitHub Actions (ECS)
+
+On staging and production deploys, GitHub Actions runs migrations inside the VPC using an ECS run-task. This avoids public database access and keeps migrations close to the database.
+
+To run a migration task manually:
+
+```bash
+# Replace with your workspace outputs
+ECS_CLUSTER=$(terraform output -raw ecs_cluster_name)
+TASK_DEF=$(terraform output -raw api_task_definition_arn)
+SUBNETS=$(terraform output -json private_subnet_ids | jq -r 'join(",")')
+SECURITY_GROUP=$(terraform output -raw ecs_security_group_id)
+
+aws ecs run-task \
+  --cluster "$ECS_CLUSTER" \
+  --task-definition "$TASK_DEF" \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUP],assignPublicIp=DISABLED}" \
+  --overrides '{"containerOverrides":[{"name":"api","command":["python","scripts/migrate.py","upgrade","--no-backup-check"]}]}'
+```
+
 #### Production Deployment
 
 ```bash
@@ -292,28 +334,43 @@ On every PR, the CI workflow runs:
 
 This ensures PRs don't break production builds.
 
-### Deploy Workflow (Push to main)
+### Deploy Workflow (Push to staging or main)
 
-On push to `main`, the deploy workflow:
+On push to `staging` or `main`, the deploy workflow:
 
 1. **Builds images**: Creates production Docker images for API and Web
 2. **Tags images**:
-   - `main-{sha}` - specific commit
-   - `latest` - most recent main branch build
+   - `{branch}-{sha}` - specific commit (e.g. `staging-abc1234`)
+   - `{branch}` - rolling tag for the branch
+   - `latest` - most recent main branch build (production only)
 3. **Pushes to GHCR**: Images published to GitHub Container Registry
-4. **Runs migrations**: Applies pending database migrations with safety checks
-5. **Creates release**: GitHub release with deployment summary and image tags
+4. **Applies Terraform**: Updates ECS task definitions and services in the target workspace (`staging` or `prod`)
+5. **Runs migrations**: Executes migrations as an ECS task inside the VPC
+6. **Creates release**: GitHub release with deployment summary (production only)
 
 ### Setting Up Secrets
 
-In your GitHub repository settings, add these secrets:
+Configure GitHub Environments for `staging` and `production` with these secrets/variables.
 
-- `PRODUCTION_DATABASE_URL`: Full PostgreSQL connection string
-  ```
-  postgresql+psycopg://user:password@host:5432/dbname
-  ```
+**Secrets**
 
-The `GITHUB_TOKEN` is automatically provided by Actions for GHCR authentication.
+- `AWS_ROLE_ARN`: OIDC role to assume for the environment
+- `DB_PASSWORD`: RDS master password (used by Terraform and stored in Secrets Manager)
+- `JWT_SECRET`: JWT signing secret
+- `GHCR_TOKEN` (optional): PAT with `write:packages` for GHCR push + ECS private pulls
+- `GHCR_USERNAME` (optional): GHCR username for ECS private pulls
+- `CERTIFICATE_ARN` (optional): ACM certificate ARN for HTTPS
+
+**Variables**
+
+- `S3_BUCKET_NAME`: S3 bucket for uploads
+- `AWS_REGION` (optional): defaults to `us-east-1`
+- `CORS_ORIGINS` (optional): JSON array string, e.g. `["https://staging.example.com"]`
+- `ENABLE_HTTPS` (optional): `true` or `false`
+- `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_WEB_BASE_URL` (optional)
+- `NEXT_PUBLIC_API_URL` (optional)
+
+The `GITHUB_TOKEN` is automatically provided by Actions for GHCR authentication. If GHCR pushes return 403, set `GHCR_TOKEN` and grant `write:packages`.
 
 ### Manual Workflow Trigger
 
@@ -321,7 +378,8 @@ You can manually trigger deployment from GitHub Actions:
 
 1. Go to Actions → Deploy
 2. Click "Run workflow"
-3. Optionally check "Skip database migration" if needed
+3. Choose the target environment (`staging` or `production`)
+4. Optionally check "Skip database migration" if needed
 
 ## Rollback Procedures
 
@@ -384,121 +442,55 @@ python scripts/migrate.py current
 - [ ] Verify application health after rollback
 - [ ] Document what went wrong and update runbooks
 
-## AWS Transition Path (Step 11)
+## AWS Deployment (Terraform + ECS)
 
-The Docker foundation built in step 10 enables smooth transition to AWS infrastructure.
-
-### Current State (Step 10)
+GitHub Actions deploys staging and production by applying Terraform and updating ECS task definitions.
 
 ```
-GitHub Actions → GHCR → Manual Docker Deployment
-```
-
-### Future State (Step 11)
-
-```
-GitHub Actions → GHCR → AWS ECS Fargate (via Terraform)
+GitHub Actions → GHCR → AWS ECS Fargate
                          ↓
                     AWS RDS PostgreSQL
-                    AWS S3 (already configured)
+                    AWS S3
                     AWS Secrets Manager
-                    AWS ALB (Load Balancer)
+                    AWS ALB
 ```
 
-### What Stays the Same
+### Workspaces
 
-- **Same Docker images**: ECS pulls from GHCR
-- **Same migration script**: Run as ECS task before deployment
-- **Same environment variables**: Loaded from Secrets Manager
-- **Same storage config**: Already using real S3
+- `default` → `dev`
+- `staging` → `staging`
+- `prod` → `production`
 
-### What Changes in Step 11
+The deploy workflow automatically selects `staging` for the `staging` branch and `prod` for `main`.
 
-#### 1. Infrastructure as Code (Terraform)
+### Remote State (Recommended)
 
-Create `infra/terraform/` with:
+CI deployments require shared state. Use the S3 backend in `infra/terraform/backend.tf` and enable DynamoDB locking before enabling GitHub Actions deploys.
 
-```hcl
-# VPC and networking
-resource "aws_vpc" "main" { ... }
+### Updating Images
 
-# RDS PostgreSQL
-resource "aws_rds_instance" "postgres" {
-  engine = "postgres"
-  engine_version = "16"
-  # Store connection string in Secrets Manager
-}
+Terraform receives `api_image` and `web_image` variables from the workflow and updates ECS task definitions for the target workspace.
 
-# ECS Cluster
-resource "aws_ecs_cluster" "main" { ... }
+### Cost Control / Pause
 
-# Task definitions (reference GHCR images)
-resource "aws_ecs_task_definition" "api" {
-  container_definitions = jsonencode([{
-    image = "ghcr.io/OWNER/REPO-api:latest"
-    # Environment from Secrets Manager
-  }])
-}
+Short-term (manual):
 
-# ALB for load balancing
-resource "aws_lb" "main" { ... }
-
-# Secrets Manager for sensitive config
-resource "aws_secretsmanager_secret" "db" { ... }
+```bash
+aws ecs update-service --cluster <cluster> --service <service> --desired-count 0
+aws rds stop-db-instance --db-instance-identifier <identifier>
 ```
 
-#### 2. Updated Deploy Workflow
+Terraform-managed:
 
-```yaml
-# After pushing images to GHCR...
+- Set `ecs_desired_count_override = 0`
+- Set `ecs_ignore_desired_count = false`
+- Apply Terraform for the workspace
 
-- name: Update ECS service
-  run: |
-    aws ecs update-service \
-      --cluster production \
-      --service api \
-      --force-new-deployment
+Full teardown:
+
+```bash
+terraform destroy
 ```
-
-#### 3. Migration as ECS Task
-
-```yaml
-- name: Run migrations
-  run: |
-    aws ecs run-task \
-      --cluster production \
-      --task-definition migration \
-      --launch-type FARGATE
-```
-
-### Migration Steps to AWS
-
-1. **Set up AWS account and credentials**
-2. **Create Terraform configuration** (see `infra/terraform/`)
-3. **Apply infrastructure**: `terraform apply`
-4. **Update GitHub secrets** with AWS credentials
-5. **Update deploy workflow** to use ECS instead of manual deployment
-6. **Test deployment to staging environment first**
-7. **Promote to production** after validation
-
-### Cost Estimates (AWS)
-
-For a small production deployment:
-
-- **ECS Fargate**: ~$30-50/month (2 tasks, 0.5 vCPU, 1GB RAM each)
-- **RDS PostgreSQL**: ~$15-30/month (db.t4g.micro with 20GB storage)
-- **ALB**: ~$20/month (base cost + data transfer)
-- **S3**: ~$5/month (depends on usage)
-- **Secrets Manager**: ~$1/month (2 secrets)
-- **Data transfer**: Variable
-
-**Total**: ~$70-110/month for production + ~$50/month for dev environment
-
-You can reduce costs with:
-- Single-AZ RDS for dev
-- Smaller instance types
-- Reserved instances (1-year commitment)
-- AWS Free Tier (first 12 months)
 
 ## Troubleshooting
 
@@ -512,6 +504,8 @@ You can reduce costs with:
 # Login with proper credentials
 echo $GHCR_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 ```
+
+For ECS private pulls, ensure `GHCR_USERNAME` and `GHCR_TOKEN` are set and Terraform creates the `/ENV/ghcr` Secrets Manager secret. The ECS execution role must have access to that secret.
 
 ### Migration Fails with "Destructive Operation Detected"
 

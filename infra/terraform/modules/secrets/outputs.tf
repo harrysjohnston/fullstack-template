@@ -13,13 +13,19 @@ output "app_secret_arn" {
   value       = aws_secretsmanager_secret.app.arn
 }
 
+output "ghcr_credentials_arn" {
+  description = "ARN of the GHCR credentials secret (if configured)"
+  value       = var.ghcr_token != "" ? aws_secretsmanager_secret.ghcr[0].arn : ""
+}
+
 output "all_secret_arns" {
   description = "List of all secret ARNs"
-  value = [
+  value = compact([
     aws_secretsmanager_secret.database.arn,
     aws_secretsmanager_secret.jwt.arn,
-    aws_secretsmanager_secret.app.arn
-  ]
+    aws_secretsmanager_secret.app.arn,
+    var.ghcr_token != "" ? aws_secretsmanager_secret.ghcr[0].arn : ""
+  ])
 }
 
 output "read_secrets_policy_arn" {

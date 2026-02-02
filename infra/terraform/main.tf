@@ -47,6 +47,15 @@ locals {
       ecs_memory           = 512
       nat_gateway_count    = 1
     }
+    staging = {
+      db_instance_class    = "db.t4g.micro"
+      db_multi_az          = false
+      db_allocated_storage = 20
+      ecs_desired_count    = 1
+      ecs_cpu              = 256
+      ecs_memory           = 512
+      nat_gateway_count    = 1
+    }
     prod = {
       db_instance_class    = "db.t4g.small"
       db_multi_az          = true
@@ -60,6 +69,8 @@ locals {
 
   # Common naming prefix
   name_prefix = "${var.project_name}-${local.env}"
+
+  ecs_desired_count = var.ecs_desired_count_override != null ? var.ecs_desired_count_override : local.config.ecs_desired_count
 }
 
 # -----------------------------------------------------------------------------
@@ -86,6 +97,8 @@ module "secrets" {
   db_password          = var.db_password
   s3_access_key_id     = var.s3_access_key_id
   s3_secret_access_key = var.s3_secret_access_key
+  ghcr_username        = var.ghcr_username
+  ghcr_token           = var.ghcr_token
 }
 
 module "database" {
@@ -142,7 +155,8 @@ module "ecs" {
   # Task configuration
   cpu           = local.config.ecs_cpu
   memory        = local.config.ecs_memory
-  desired_count = local.config.ecs_desired_count
+  desired_count = local.ecs_desired_count
+  ignore_desired_count = var.ecs_ignore_desired_count
 
   # Container images
   api_image = var.api_image
@@ -154,6 +168,7 @@ module "ecs" {
 
   # Secrets
   secrets_arns = module.secrets.all_secret_arns
+  ghcr_credentials_arn = module.secrets.ghcr_credentials_arn
 
   # Environment variables
   database_url        = module.database.connection_url
