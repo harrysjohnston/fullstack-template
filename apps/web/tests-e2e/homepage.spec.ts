@@ -9,17 +9,19 @@ test.describe("Homepage", () => {
 
   test("displays the main heading", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "fullstack-template" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your files, archived" })).toBeVisible();
   });
 
   test("displays the description text", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText(/Next.js \+ TypeScript scaffold/i)).toBeVisible();
+    await expect(page.getByText(/A minimal, secure space for your uploads/i)).toBeVisible();
   });
 
-  test("displays both buttons", async ({ page }) => {
+  test("displays the auth form", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "Get started" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "View docs" })).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Password")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
   });
 });
