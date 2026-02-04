@@ -21,7 +21,7 @@
 #
 # Prerequisites:
 # 1. Create an S3 bucket for state storage:
-#    aws s3api create-bucket --bucket YOUR-STATE-BUCKET --region us-east-1
+#    aws s3api create-bucket --bucket YOUR-STATE-BUCKET --region your-region
 #
 # 2. Enable versioning on the bucket:
 #    aws s3api put-bucket-versioning --bucket YOUR-STATE-BUCKET \

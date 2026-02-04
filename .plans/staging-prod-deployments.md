@@ -14,7 +14,7 @@ Goal: pushes to `staging` and `main` trigger cloud deployments; PRs flow from `d
 
 ## Gaps / Risks (from both plans)
 
-- **Backend portability**: `backend.tf` is hard-coded to a specific bucket/region; CI defaults to `us-east-1` unless overridden by environment vars. Region mismatch will break `terraform init`.
+- **Backend portability**: `backend.tf` is hard-coded to a specific bucket/region; CI requires explicit AWS region env vars. Region mismatch will break `terraform init`.
 - **OIDC trust scope**: bootstrap config restricts trust to `staging` branch only; production deploys will fail unless a prod role or widened trust is added.
 - **S3 ownership mismatch**: manual creation vs Terraform-managed resource can cause apply failures.
 - **GHCR push 403**: still depends on GitHub package access, workflow permissions, or PAT configuration.

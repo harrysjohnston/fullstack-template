@@ -32,7 +32,7 @@ if [[ ! -t 0 ]]; then
   exit 1
 fi
 
-echo "Key deployment variables (all optional — press Enter to skip or use default)."
+echo "Key deployment variables (most optional — press Enter to skip or use default)."
 echo "Used for .env.production and manual/CI deployment. Local dev uses .env only."
 echo ""
 
@@ -47,9 +47,14 @@ prompt_value EMAIL_FROM_ADDRESS "EMAIL_FROM_ADDRESS" ""
 prompt_value EMAIL_FROM_NAME "EMAIL_FROM_NAME" "$APP_NAME"
 prompt_value EMAIL_SUPPORT_ADDRESS "EMAIL_SUPPORT_ADDRESS" ""
 prompt_value S3_BUCKET "S3_BUCKET (production)" ""
-prompt_value S3_REGION "S3_REGION" "us-east-1"
+prompt_value S3_REGION "S3_REGION (required)" ""
 prompt_value S3_ACCESS_KEY_ID "S3_ACCESS_KEY_ID" ""
 prompt_value S3_SECRET_ACCESS_KEY "S3_SECRET_ACCESS_KEY" ""
+
+if [[ -z "${S3_REGION:-}" ]]; then
+  warn "S3_REGION is required for S3 storage."
+  exit 1
+fi
 
 if [[ -f "$OUTPUT_FILE" ]]; then
   read -r -p "Overwrite existing $OUTPUT_FILE? [y/N]: " overwrite

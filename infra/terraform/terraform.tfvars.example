@@ -7,14 +7,14 @@
 # -----------------------------------------------------------------------------
 
 project_name = "fullstack-template"
-aws_region   = "us-east-1"
+aws_region   = "your-region"
 
 # -----------------------------------------------------------------------------
 # Networking
 # -----------------------------------------------------------------------------
 
 vpc_cidr           = "10.0.0.0/16"
-availability_zones = ["us-east-1a", "us-east-1b"]
+availability_zones = ["your-region-a", "your-region-b"]
 
 # -----------------------------------------------------------------------------
 # Database
@@ -68,7 +68,7 @@ cors_origins = ["https://your-domain.com"]
 
 # HTTPS Configuration (optional)
 # First, create an ACM certificate for your domain
-# certificate_arn = "arn:aws:acm:us-east-1:123456789:certificate/abc-123"
+# certificate_arn = "arn:aws:acm:your-region:123456789:certificate/abc-123"
 # enable_https    = true
 
 # -----------------------------------------------------------------------------

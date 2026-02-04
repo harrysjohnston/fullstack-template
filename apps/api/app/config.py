@@ -139,7 +139,7 @@ class Settings(BaseSettings):
         description="Storage provider (s3 | gcs | azure)",
     )
     s3_bucket: str = Field(default="", description="S3 bucket name")
-    s3_region: str = Field(default="us-east-1", description="S3 region")
+    s3_region: str = Field(..., description="S3 region")
     s3_endpoint_url: str | None = Field(
         default=None,
         description="S3 endpoint URL (for MinIO: http://localhost:9000)",

@@ -80,7 +80,7 @@ The deployment strategy uses Docker containers published to GitHub Container Reg
   - `ENABLE_HTTPS` (`true` or `false`)
   - `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_WEB_BASE_URL`
   - `NEXT_PUBLIC_API_URL`
-  - `AWS_REGION` (defaults to `us-east-1`)
+  - `AWS_REGION` (required; no default)
 
 ## Manual Deployment
 
@@ -133,7 +133,7 @@ CORS_ORIGINS=https://your-domain.com
 # Storage (S3)
 STORAGE_PROVIDER=s3
 S3_BUCKET=your-production-bucket
-S3_REGION=us-east-1
+S3_REGION=your-aws-region
 # S3_ENDPOINT_URL not needed for real AWS S3
 S3_ACCESS_KEY_ID=your-access-key
 S3_SECRET_ACCESS_KEY=your-secret-key
@@ -364,7 +364,7 @@ Configure GitHub Environments for `staging` and `production` with these secrets/
 **Variables**
 
 - `S3_BUCKET_NAME`: S3 bucket for uploads
-- `AWS_REGION` (optional): defaults to `us-east-1`
+- `AWS_REGION` (required): no default
 - `CORS_ORIGINS` (optional): JSON array string, e.g. `["https://staging.example.com"]`
 - `ENABLE_HTTPS` (optional): `true` or `false`
 - `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_WEB_BASE_URL` (optional)

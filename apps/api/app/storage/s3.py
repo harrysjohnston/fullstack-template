@@ -38,7 +38,7 @@ class S3StorageProvider:
     def __init__(
         self,
         bucket: str,
-        region: str = "us-east-1",
+        region: str,
         endpoint_url: str | None = None,
         access_key_id: str | None = None,
         secret_access_key: str | None = None,

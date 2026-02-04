@@ -161,13 +161,14 @@ flowchart TB
 | `db_password` | PostgreSQL master password |
 | `jwt_secret` | JWT signing secret |
 | `s3_bucket_name` | Globally unique S3 bucket name |
+| `aws_region` | AWS region for resources |
+| `availability_zones` | List of availability zones to use |
 
 ### Optional Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `project_name` | `fullstack-template` | Resource naming prefix |
-| `aws_region` | `us-east-1` | AWS region |
 | `vpc_cidr` | `10.0.0.0/16` | VPC CIDR block |
 | `enable_https` | `false` | Enable HTTPS (requires `certificate_arn`) |
 
@@ -188,7 +189,7 @@ To enable HTTPS:
 
 3. Add to `terraform.tfvars`:
    ```hcl
-   certificate_arn = "arn:aws:acm:us-east-1:123456789:certificate/abc-123"
+   certificate_arn = "arn:aws:acm:your-region:123456789:certificate/abc-123"
    enable_https    = true
    ```
 
@@ -200,7 +201,7 @@ For team environments, configure S3 backend for state storage:
 
 1. Create state bucket and DynamoDB table:
    ```bash
-   aws s3api create-bucket --bucket your-tf-state-bucket --region us-east-1
+   aws s3api create-bucket --bucket your-tf-state-bucket --region your-region
    aws s3api put-bucket-versioning --bucket your-tf-state-bucket \
      --versioning-configuration Status=Enabled
    aws dynamodb create-table --table-name terraform-locks \
