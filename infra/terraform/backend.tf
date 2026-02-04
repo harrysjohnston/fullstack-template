@@ -35,12 +35,12 @@
 #
 # 4. Update the bucket name below and uncomment the backend block
 
-# terraform {
-#   backend "s3" {
-#     bucket         = "your-terraform-state-bucket"
-#     key            = "fullstack-template/terraform.tfstate"
-#     region         = "us-east-1"
-#     dynamodb_table = "terraform-locks"
-#     encrypt        = true
-#   }
-# }
+terraform {
+  backend "s3" {
+    bucket         = "harry-tf-state"
+    key            = "fullstack-template/terraform.tfstate"
+    region         = "eu-west-2"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+  }
+}

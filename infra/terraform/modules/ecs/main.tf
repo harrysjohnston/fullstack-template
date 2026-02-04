@@ -329,7 +329,7 @@ resource "aws_ecs_service" "api" {
   }
 
   lifecycle {
-    ignore_changes = var.ignore_desired_count ? [desired_count] : []
+    ignore_changes = [desired_count]
   }
 }
 
@@ -369,6 +369,6 @@ resource "aws_ecs_service" "web" {
   }
 
   lifecycle {
-    ignore_changes = var.ignore_desired_count ? [desired_count] : []
+    ignore_changes = [desired_count]
   }
 }
