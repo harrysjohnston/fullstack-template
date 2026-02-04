@@ -117,7 +117,8 @@ module "database" {
   db_username = var.db_username
   db_password = var.db_password
 
-  secrets_arn = module.secrets.database_secret_arn
+  secrets_arn                = module.secrets.database_secret_arn
+  store_connection_in_secret = true
 }
 
 module "storage" {

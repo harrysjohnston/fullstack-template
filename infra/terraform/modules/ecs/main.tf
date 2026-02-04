@@ -16,7 +16,7 @@ locals {
 }
 
 resource "aws_ecs_cluster" "main" {
-  name = "${var.name_prefix}-cluster"
+  name = substr("${var.name_prefix}-cluster", 0, 255)
 
   setting {
     name  = "containerInsights"
@@ -45,7 +45,7 @@ resource "aws_ecs_cluster_capacity_providers" "main" {
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/${var.name_prefix}/api"
+  name              = substr("/ecs/${var.name_prefix}/api", 0, 512)
   retention_in_days = 30
 
   tags = {
@@ -54,7 +54,7 @@ resource "aws_cloudwatch_log_group" "api" {
 }
 
 resource "aws_cloudwatch_log_group" "web" {
-  name              = "/ecs/${var.name_prefix}/web"
+  name              = substr("/ecs/${var.name_prefix}/web", 0, 512)
   retention_in_days = 30
 
   tags = {
@@ -68,7 +68,7 @@ resource "aws_cloudwatch_log_group" "web" {
 
 # Task Execution Role (used by ECS to pull images and write logs)
 resource "aws_iam_role" "ecs_execution" {
-  name = "${var.name_prefix}-ecs-execution-role"
+  name = substr("${var.name_prefix}-ecs-execution-role", 0, 64)
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -95,7 +95,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
 
 # Policy to access Secrets Manager
 resource "aws_iam_role_policy" "ecs_execution_secrets" {
-  name = "${var.name_prefix}-ecs-secrets-policy"
+  name = substr("${var.name_prefix}-ecs-secrets-policy", 0, 128)
   role = aws_iam_role.ecs_execution.id
 
   policy = jsonencode({
@@ -114,7 +114,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
 
 # Task Role (used by the application running in the container)
 resource "aws_iam_role" "ecs_task" {
-  name = "${var.name_prefix}-ecs-task-role"
+  name = substr("${var.name_prefix}-ecs-task-role", 0, 64)
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -136,7 +136,7 @@ resource "aws_iam_role" "ecs_task" {
 
 # Policy for S3 access (presigned URLs)
 resource "aws_iam_role_policy" "ecs_task_s3" {
-  name = "${var.name_prefix}-ecs-s3-policy"
+  name = substr("${var.name_prefix}-ecs-s3-policy", 0, 128)
   role = aws_iam_role.ecs_task.id
 
   policy = jsonencode({
@@ -164,7 +164,7 @@ resource "aws_iam_role_policy" "ecs_task_s3" {
 # -----------------------------------------------------------------------------
 
 resource "aws_ecs_task_definition" "api" {
-  family                   = "${var.name_prefix}-api"
+  family                   = substr("${var.name_prefix}-api", 0, 255)
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.cpu
@@ -242,7 +242,7 @@ resource "aws_ecs_task_definition" "api" {
 # -----------------------------------------------------------------------------
 
 resource "aws_ecs_task_definition" "web" {
-  family                   = "${var.name_prefix}-web"
+  family                   = substr("${var.name_prefix}-web", 0, 255)
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.cpu
@@ -298,7 +298,7 @@ resource "aws_ecs_task_definition" "web" {
 # -----------------------------------------------------------------------------
 
 resource "aws_ecs_service" "api" {
-  name            = "${var.name_prefix}-api"
+  name            = substr("${var.name_prefix}-api", 0, 255)
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api.arn
   desired_count   = var.desired_count
@@ -338,7 +338,7 @@ resource "aws_ecs_service" "api" {
 # -----------------------------------------------------------------------------
 
 resource "aws_ecs_service" "web" {
-  name            = "${var.name_prefix}-web"
+  name            = substr("${var.name_prefix}-web", 0, 255)
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.web.arn
   desired_count   = var.desired_count

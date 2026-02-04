@@ -8,7 +8,7 @@
 # -----------------------------------------------------------------------------
 
 resource "aws_lb" "main" {
-  name               = "${var.name_prefix}-alb"
+  name               = substr("alb-${var.name_prefix}", 0, 32)
   internal           = false
   load_balancer_type = "application"
   security_groups    = [var.security_group_id]
@@ -17,7 +17,7 @@ resource "aws_lb" "main" {
   enable_deletion_protection = var.enable_deletion_protection
 
   tags = {
-    Name = "${var.name_prefix}-alb"
+    Name = "alb-${var.name_prefix}"
   }
 }
 
@@ -27,7 +27,7 @@ resource "aws_lb" "main" {
 
 # API Target Group
 resource "aws_lb_target_group" "api" {
-  name        = "${var.name_prefix}-api-tg"
+  name        = substr("api-tg-${var.name_prefix}", 0, 32)
   port        = 8000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -46,13 +46,13 @@ resource "aws_lb_target_group" "api" {
   }
 
   tags = {
-    Name = "${var.name_prefix}-api-tg"
+    Name = substr("api-tg-${var.name_prefix}", 0, 32)
   }
 }
 
 # Web Target Group
 resource "aws_lb_target_group" "web" {
-  name        = "${var.name_prefix}-web-tg"
+  name        = substr("web-tg-${var.name_prefix}", 0, 32)
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -71,7 +71,7 @@ resource "aws_lb_target_group" "web" {
   }
 
   tags = {
-    Name = "${var.name_prefix}-web-tg"
+    Name = substr("web-tg-${var.name_prefix}", 0, 32)
   }
 }
 

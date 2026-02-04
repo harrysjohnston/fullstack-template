@@ -8,7 +8,7 @@
 # -----------------------------------------------------------------------------
 
 resource "aws_db_subnet_group" "main" {
-  name        = "${var.name_prefix}-db-subnet-group"
+  name        = substr("${var.name_prefix}-db-subnet-group", 0, 255)
   description = "Database subnet group for ${var.name_prefix}"
   subnet_ids  = var.subnet_ids
 
@@ -22,7 +22,7 @@ resource "aws_db_subnet_group" "main" {
 # -----------------------------------------------------------------------------
 
 resource "aws_db_parameter_group" "main" {
-  name        = "${var.name_prefix}-pg16-params"
+  name        = substr("${var.name_prefix}-pg16-params", 0, 255)
   family      = "postgres16"
   description = "PostgreSQL 16 parameter group for ${var.name_prefix}"
 
@@ -57,7 +57,7 @@ resource "aws_db_parameter_group" "main" {
 # -----------------------------------------------------------------------------
 
 resource "aws_db_instance" "main" {
-  identifier = "${var.name_prefix}-postgres"
+  identifier = substr("${var.name_prefix}-postgres", 0, 63)
 
   # Engine configuration
   engine                = "postgres"
@@ -91,7 +91,7 @@ resource "aws_db_instance" "main" {
   # Deletion protection
   deletion_protection       = var.deletion_protection
   skip_final_snapshot       = var.skip_final_snapshot
-  final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.name_prefix}-final-snapshot"
+  final_snapshot_identifier = var.skip_final_snapshot ? null : substr("${var.name_prefix}-final-snapshot", 0, 255)
 
   # Performance Insights (free tier for 7 days retention)
   performance_insights_enabled          = true
@@ -114,7 +114,7 @@ resource "aws_db_instance" "main" {
 # -----------------------------------------------------------------------------
 
 resource "aws_secretsmanager_secret_version" "db_connection" {
-  count = var.secrets_arn != "" ? 1 : 0
+  count = var.store_connection_in_secret ? 1 : 0
 
   secret_id = var.secrets_arn
   secret_string = jsonencode({

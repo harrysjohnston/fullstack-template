@@ -133,7 +133,7 @@ data "aws_iam_policy_document" "read_secrets" {
 }
 
 resource "aws_iam_policy" "read_secrets" {
-  name        = "${var.name_prefix}-read-secrets"
+  name        = substr("${var.name_prefix}-read-secrets", 0, 128)
   description = "Policy to read secrets for ${var.name_prefix}"
   policy      = data.aws_iam_policy_document.read_secrets.json
 

@@ -153,7 +153,7 @@ resource "aws_route_table_association" "private" {
 
 # ALB Security Group
 resource "aws_security_group" "alb" {
-  name        = "${var.name_prefix}-alb-sg"
+  name        = substr("${var.name_prefix}-alb-sg", 0, 255)
   description = "Security group for Application Load Balancer"
   vpc_id      = aws_vpc.main.id
 
@@ -188,7 +188,7 @@ resource "aws_security_group" "alb" {
 
 # ECS Security Group
 resource "aws_security_group" "ecs" {
-  name        = "${var.name_prefix}-ecs-sg"
+  name        = substr("${var.name_prefix}-ecs-sg", 0, 255)
   description = "Security group for ECS tasks"
   vpc_id      = aws_vpc.main.id
 
@@ -223,7 +223,7 @@ resource "aws_security_group" "ecs" {
 
 # RDS Security Group
 resource "aws_security_group" "rds" {
-  name        = "${var.name_prefix}-rds-sg"
+  name        = substr("${var.name_prefix}-rds-sg", 0, 255)
   description = "Security group for RDS PostgreSQL"
   vpc_id      = aws_vpc.main.id
 

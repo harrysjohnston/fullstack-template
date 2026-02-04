@@ -81,3 +81,9 @@ variable "secrets_arn" {
   type        = string
   default     = ""
 }
+
+variable "store_connection_in_secret" {
+  description = "Whether to store database connection info in Secrets Manager"
+  type        = bool
+  default     = true
+}
