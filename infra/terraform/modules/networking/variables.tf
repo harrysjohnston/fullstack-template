@@ -12,7 +12,6 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "List of availability zones to use"
   type        = list(string)
-  default     = ["eu-west-2a", "eu-west-2b"]
 }
 
 variable "nat_gateway_count" {
