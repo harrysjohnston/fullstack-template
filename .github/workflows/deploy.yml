@@ -17,15 +17,114 @@ on:
         required: false
         type: boolean
         default: false
+      force_full_deploy:
+        description: "Force build/push both images and run full Terraform apply"
+        required: false
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      api_changed: ${{ steps.effective.outputs.api_changed }}
+      web_changed: ${{ steps.effective.outputs.web_changed }}
+      infra_changed: ${{ steps.effective.outputs.infra_changed }}
+      build_images: ${{ steps.effective.outputs.build_images }}
+      deploy_needed: ${{ steps.effective.outputs.deploy_needed }}
+      run_migrations: ${{ steps.effective.outputs.run_migrations }}
+      image_tag: ${{ steps.effective.outputs.image_tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'apps/api/Dockerfile'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+            web:
+              - 'apps/web/**'
+              - 'apps/web/Dockerfile'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+            infra:
+              - 'infra/**'
+              - 'terraform/**'
+              - '.github/workflows/deploy.yml'
+
+      - name: Compute effective deploy flags
+        id: effective
+        run: |
+          api_changed='${{ steps.changes.outputs.api }}'
+          web_changed='${{ steps.changes.outputs.web }}'
+          infra_changed='${{ steps.changes.outputs.infra }}'
+          force_full='false'
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_full_deploy }}" = "true" ]; then
+            force_full='true'
+          fi
+
+          if [ "$force_full" = "true" ]; then
+            api_changed='true'
+            web_changed='true'
+            infra_changed='true'
+          fi
+
+          build_images='false'
+          if [ "$api_changed" = "true" ] || [ "$web_changed" = "true" ]; then
+            build_images='true'
+          fi
+
+          deploy_needed='false'
+          if [ "$infra_changed" = "true" ] || [ "$build_images" = "true" ]; then
+            deploy_needed='true'
+          fi
+
+          run_migrations='false'
+          if [ "$api_changed" = "true" ] || [ "$infra_changed" = "true" ]; then
+            run_migrations='true'
+          fi
+
+          echo "api_changed=$api_changed" >> "$GITHUB_OUTPUT"
+          echo "web_changed=$web_changed" >> "$GITHUB_OUTPUT"
+          echo "infra_changed=$infra_changed" >> "$GITHUB_OUTPUT"
+          echo "build_images=$build_images" >> "$GITHUB_OUTPUT"
+          echo "deploy_needed=$deploy_needed" >> "$GITHUB_OUTPUT"
+          echo "run_migrations=$run_migrations" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+          echo "api_changed=$api_changed"
+          echo "web_changed=$web_changed"
+          echo "infra_changed=$infra_changed"
+          echo "build_images=$build_images"
+          echo "deploy_needed=$deploy_needed"
+          echo "run_migrations=$run_migrations"
+
   build-and-push:
     name: Build and Push Images
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.build_images == 'true' }}
     permissions:
       contents: read
       packages: write
@@ -40,7 +139,7 @@ jobs:
       - name: Set image tag
         id: image-vars
         run: |
-          image_tag="${GITHUB_REF_NAME}-${GITHUB_SHA::7}"
+          image_tag='${{ needs.detect-changes.outputs.image_tag }}'
           api_image="${REGISTRY}/${IMAGE_PREFIX}-api:${image_tag}"
           web_image="${REGISTRY}/${IMAGE_PREFIX}-web:${image_tag}"
           echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
@@ -57,58 +156,43 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for API
-        id: meta-api
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-api
-          tags: |
-            type=raw,value=${{ steps.image-vars.outputs.image_tag }}
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push API image
+        if: ${{ needs.detect-changes.outputs.api_changed == 'true' }}
         uses: docker/build-push-action@v5
         with:
           context: .
           file: apps/api/Dockerfile
           target: production
           push: true
-          tags: ${{ steps.meta-api.outputs.tags }}
-          labels: ${{ steps.meta-api.outputs.labels }}
+          tags: ${{ steps.image-vars.outputs.api_image }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract metadata for Web
-        id: meta-web
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-web
-          tags: |
-            type=raw,value=${{ steps.image-vars.outputs.image_tag }}
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push Web image
+        if: ${{ needs.detect-changes.outputs.web_changed == 'true' }}
         uses: docker/build-push-action@v5
         with:
           context: .
           file: apps/web/Dockerfile
           target: production
           push: true
-          tags: ${{ steps.meta-web.outputs.tags }}
-          labels: ${{ steps.meta-web.outputs.labels }}
+          tags: ${{ steps.image-vars.outputs.web_image }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy to AWS
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [detect-changes, build-and-push]
+    if: ${{ needs.detect-changes.outputs.deploy_needed == 'true' }}
     environment: ${{ inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
     permissions:
       contents: read
       id-token: write
+    outputs:
+      api_image: ${{ steps.images.outputs.api_image }}
+      web_image: ${{ steps.images.outputs.web_image }}
+      image_tag: ${{ needs.detect-changes.outputs.image_tag }}
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
@@ -171,29 +255,179 @@ jobs:
           echo "tf_workspace=${workspace}" >> "$GITHUB_OUTPUT"
           terraform workspace select "$workspace" || terraform workspace new "$workspace"
 
+      - name: Resolve image references
+        id: images
+        working-directory: infra/terraform
+        run: |
+          api_changed='${{ needs.detect-changes.outputs.api_changed }}'
+          web_changed='${{ needs.detect-changes.outputs.web_changed }}'
+
+          api_image=''
+          web_image=''
+          cluster=''
+          api_service=''
+          web_service=''
+
+          if [ "$api_changed" = 'true' ]; then
+            api_image='${{ needs.build-and-push.outputs.api_image }}'
+            if [ -z "$api_image" ]; then
+              echo "API changed but no built API image was provided."
+              exit 1
+            fi
+          fi
+
+          if [ "$web_changed" = 'true' ]; then
+            web_image='${{ needs.build-and-push.outputs.web_image }}'
+            if [ -z "$web_image" ]; then
+              echo "Web changed but no built Web image was provided."
+              exit 1
+            fi
+          fi
+
+          if [ -z "$api_image" ] || [ -z "$web_image" ]; then
+            cluster="$(terraform output -raw ecs_cluster_name 2>/dev/null || true)"
+            api_service="$(terraform output -raw api_service_name 2>/dev/null || true)"
+            web_service="$(terraform output -raw web_service_name 2>/dev/null || true)"
+          fi
+
+          if [ -z "$api_image" ]; then
+            if [ -z "$cluster" ] || [ -z "$api_service" ]; then
+              echo "Could not resolve current API service image from Terraform outputs."
+              echo "Use workflow_dispatch with force_full_deploy=true to seed a full deploy."
+              exit 1
+            fi
+            api_task_def_arn=$(aws ecs describe-services \
+              --cluster "$cluster" \
+              --services "$api_service" \
+              --query 'services[0].taskDefinition' \
+              --output text)
+            api_image=$(aws ecs describe-task-definition \
+              --task-definition "$api_task_def_arn" \
+              --query "taskDefinition.containerDefinitions[?name=='api'].image | [0]" \
+              --output text)
+          fi
+
+          if [ -z "$web_image" ]; then
+            if [ -z "$cluster" ] || [ -z "$web_service" ]; then
+              echo "Could not resolve current Web service image from Terraform outputs."
+              echo "Use workflow_dispatch with force_full_deploy=true to seed a full deploy."
+              exit 1
+            fi
+            web_task_def_arn=$(aws ecs describe-services \
+              --cluster "$cluster" \
+              --services "$web_service" \
+              --query 'services[0].taskDefinition' \
+              --output text)
+            web_image=$(aws ecs describe-task-definition \
+              --task-definition "$web_task_def_arn" \
+              --query "taskDefinition.containerDefinitions[?name=='web'].image | [0]" \
+              --output text)
+          fi
+
+          if [ -z "$api_image" ] || [ "$api_image" = "None" ] || [ -z "$web_image" ] || [ "$web_image" = "None" ]; then
+            echo "Could not resolve deployment images for api/web."
+            exit 1
+          fi
+
+          echo "api_image=$api_image" >> "$GITHUB_OUTPUT"
+          echo "web_image=$web_image" >> "$GITHUB_OUTPUT"
+          echo "cluster=$cluster" >> "$GITHUB_OUTPUT"
+          echo "api_service=$api_service" >> "$GITHUB_OUTPUT"
+          echo "web_service=$web_service" >> "$GITHUB_OUTPUT"
+
       - name: Terraform apply
+        if: ${{ needs.detect-changes.outputs.infra_changed == 'true' }}
         working-directory: infra/terraform
         run: |
           terraform apply -auto-approve \
-            -var "api_image=${{ needs.build-and-push.outputs.api_image }}" \
-            -var "web_image=${{ needs.build-and-push.outputs.web_image }}"
+            -var "api_image=${{ steps.images.outputs.api_image }}" \
+            -var "web_image=${{ steps.images.outputs.web_image }}"
 
       - name: Read ECS outputs
         id: ecs
         working-directory: infra/terraform
         run: |
           echo "cluster=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
-          echo "task_def=$(terraform output -raw api_task_definition_arn)" >> "$GITHUB_OUTPUT"
+          echo "api_service=$(terraform output -raw api_service_name)" >> "$GITHUB_OUTPUT"
+          echo "web_service=$(terraform output -raw web_service_name)" >> "$GITHUB_OUTPUT"
           echo "security_group=$(terraform output -raw ecs_security_group_id)" >> "$GITHUB_OUTPUT"
           subnets=$(terraform output -json private_subnet_ids | jq -r 'join(",")')
           echo "subnets=${subnets}" >> "$GITHUB_OUTPUT"
 
-      - name: Run database migrations (ECS task)
-        if: ${{ inputs.skip_migration != true }}
+      - name: Redeploy changed ECS services
+        if: ${{ needs.detect-changes.outputs.infra_changed != 'true' && (needs.detect-changes.outputs.api_changed == 'true' || needs.detect-changes.outputs.web_changed == 'true') }}
+        env:
+          CLUSTER: ${{ steps.ecs.outputs.cluster }}
+          API_SERVICE: ${{ steps.ecs.outputs.api_service }}
+          WEB_SERVICE: ${{ steps.ecs.outputs.web_service }}
+          API_IMAGE: ${{ steps.images.outputs.api_image }}
+          WEB_IMAGE: ${{ steps.images.outputs.web_image }}
+          API_CHANGED: ${{ needs.detect-changes.outputs.api_changed }}
+          WEB_CHANGED: ${{ needs.detect-changes.outputs.web_changed }}
         run: |
+          set -euo pipefail
+
+          register_and_deploy() {
+            local service_name="$1"
+            local container_name="$2"
+            local image_ref="$3"
+
+            current_task_def_arn=$(aws ecs describe-services \
+              --cluster "$CLUSTER" \
+              --services "$service_name" \
+              --query 'services[0].taskDefinition' \
+              --output text)
+
+            new_task_def_json=$(aws ecs describe-task-definition \
+              --task-definition "$current_task_def_arn" \
+              --query 'taskDefinition' \
+              --output json | jq \
+              --arg container_name "$container_name" \
+              --arg image_ref "$image_ref" \
+              '.containerDefinitions = (.containerDefinitions | map(if .name == $container_name then .image = $image_ref else . end))
+               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+
+            task_def_file=$(mktemp)
+            printf '%s' "$new_task_def_json" > "$task_def_file"
+
+            new_task_def_arn=$(aws ecs register-task-definition \
+              --cli-input-json "file://$task_def_file" \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)
+
+            rm -f "$task_def_file"
+
+            aws ecs update-service \
+              --cluster "$CLUSTER" \
+              --service "$service_name" \
+              --task-definition "$new_task_def_arn" \
+              --force-new-deployment >/dev/null
+
+            aws ecs wait services-stable \
+              --cluster "$CLUSTER" \
+              --services "$service_name"
+          }
+
+          if [ "$API_CHANGED" = "true" ]; then
+            register_and_deploy "$API_SERVICE" "api" "$API_IMAGE"
+          fi
+
+          if [ "$WEB_CHANGED" = "true" ]; then
+            register_and_deploy "$WEB_SERVICE" "web" "$WEB_IMAGE"
+          fi
+
+      - name: Run database migrations (ECS task)
+        if: ${{ (github.event_name != 'workflow_dispatch' || inputs.skip_migration != true) && needs.detect-changes.outputs.run_migrations == 'true' }}
+        run: |
+          api_task_def=$(aws ecs describe-services \
+            --cluster "${{ steps.ecs.outputs.cluster }}" \
+            --services "${{ steps.ecs.outputs.api_service }}" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
           task_arn=$(aws ecs run-task \
             --cluster "${{ steps.ecs.outputs.cluster }}" \
-            --task-definition "${{ steps.ecs.outputs.task_def }}" \
+            --task-definition "$api_task_def" \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[${{ steps.ecs.outputs.subnets }}],securityGroups=[${{ steps.ecs.outputs.security_group }}],assignPublicIp=DISABLED}" \
             --overrides '{"containerOverrides":[{"name":"api","command":["python","scripts/migrate.py","upgrade","--no-backup-check"]}]}' \
@@ -223,8 +457,8 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-and-push, deploy]
-    if: always() && needs.build-and-push.result == 'success' && (github.ref_name == 'main' || inputs.environment == 'production')
+    needs: [detect-changes, build-and-push, deploy]
+    if: always() && needs.deploy.result == 'success' && (github.ref_name == 'main' || inputs.environment == 'production')
     permissions:
       contents: write
 
@@ -245,18 +479,25 @@ jobs:
 
           ### API
           \`\`\`
-          ${{ needs.build-and-push.outputs.api_image }}
+          ${{ needs.deploy.outputs.api_image }}
           \`\`\`
 
           ### Web
           \`\`\`
-          ${{ needs.build-and-push.outputs.web_image }}
+          ${{ needs.deploy.outputs.web_image }}
           \`\`\`
+
+          ## Change Detection
+
+          - API changed: ${{ needs.detect-changes.outputs.api_changed }}
+          - Web changed: ${{ needs.detect-changes.outputs.web_changed }}
+          - Infra changed: ${{ needs.detect-changes.outputs.infra_changed }}
+          - Force full deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.force_full_deploy == true }}
 
           ## Deployment Notes
 
-          - Images built from tag: ${{ needs.build-and-push.outputs.image_tag }}
-          - Migrations: ${{ inputs.skip_migration && 'Skipped' || 'Ran as ECS task' }}
+          - Image tag: ${{ needs.detect-changes.outputs.image_tag }}
+          - Migrations: ${{ (github.event_name == 'workflow_dispatch' && inputs.skip_migration == true) && 'Skipped (manual override)' || (needs.detect-changes.outputs.run_migrations == 'true' && 'Ran as ECS task' || 'Skipped (no API/infra changes)') }}
           EOF
 
       - name: Create GitHub Release

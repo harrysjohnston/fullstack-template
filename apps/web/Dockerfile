@@ -47,30 +47,27 @@ COPY apps/web apps/web
 
 # Build the application
 WORKDIR /app/apps/web
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
 # Production stage
-FROM base AS production
+FROM node:20-alpine AS production
 
 WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 # Create non-root user
-# Use GID/UID 1001 to avoid conflicts with existing system users
-RUN addgroup -g 1001 appuser && \
-    adduser -D -u 1001 -G appuser appuser && \
-    chown -R appuser:appuser /app
+RUN addgroup -S -g 1001 appuser && \
+    adduser -S -u 1001 -G appuser appuser
 
-# Copy package files for production dependencies
-COPY --chown=appuser:appuser package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY --chown=appuser:appuser apps/web/package.json apps/web/
-
-# Install production dependencies only
-RUN pnpm install --filter @apps/web... --frozen-lockfile --prod
-
-# Copy built application from builder
-COPY --from=builder --chown=appuser:appuser /app/apps/web/.next /app/apps/web/.next
-COPY --from=builder --chown=appuser:appuser /app/apps/web/public /app/apps/web/public
-COPY --chown=appuser:appuser apps/web/next.config.ts /app/apps/web/
+# Copy standalone build output; no pnpm install or runtime dependency mutation.
+COPY --from=builder --chown=appuser:appuser /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=appuser:appuser /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=appuser:appuser /app/apps/web/public ./apps/web/public
 
 # Switch to non-root user
 USER appuser
@@ -78,12 +75,9 @@ USER appuser
 # Expose port
 EXPOSE 3000
 
-# Set working directory
-WORKDIR /app/apps/web
-
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Run the application
-CMD ["pnpm", "start"]
+# Run the standalone Next.js server (path differs between mono/single-repo layouts).
+CMD ["sh", "-c", "if [ -f apps/web/server.js ]; then node apps/web/server.js; else node server.js; fi"]

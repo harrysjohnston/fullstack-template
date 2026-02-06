@@ -265,7 +265,7 @@ resource "aws_ecs_task_definition" "web" {
       ]
 
       environment = [
-        { name = "NODE_ENV", value = var.environment == "prod" ? "production" : "development" },
+        { name = "NODE_ENV", value = "production" },
         { name = "NEXT_PUBLIC_API_URL", value = var.next_public_api_url },
       ]
 
