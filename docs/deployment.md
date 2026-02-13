@@ -265,7 +265,7 @@ To run a migration task manually:
 ECS_CLUSTER=$(terraform output -raw ecs_cluster_name)
 TASK_DEF=$(terraform output -raw api_task_definition_arn)
 SUBNETS=$(terraform output -json private_subnet_ids | jq -r 'join(",")')
-SECURITY_GROUP=$(terraform output -raw ecs_security_group_id)
+SECURITY_GROUP=$(terraform output -raw api_ecs_security_group_id)
 
 aws ecs run-task \
   --cluster "$ECS_CLUSTER" \

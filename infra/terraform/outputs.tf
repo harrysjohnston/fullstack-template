@@ -18,8 +18,18 @@ output "private_subnet_ids" {
 }
 
 output "ecs_security_group_id" {
-  description = "ID of the ECS security group"
+  description = "Deprecated compatibility output for ECS security group ID (API)"
   value       = module.networking.ecs_security_group_id
+}
+
+output "api_ecs_security_group_id" {
+  description = "ID of the API ECS security group"
+  value       = module.networking.api_ecs_security_group_id
+}
+
+output "web_ecs_security_group_id" {
+  description = "ID of the Web ECS security group"
+  value       = module.networking.web_ecs_security_group_id
 }
 
 # -----------------------------------------------------------------------------

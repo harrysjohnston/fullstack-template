@@ -279,7 +279,7 @@ resource "aws_ecs_task_definition" "web" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})\" || exit 1"]
+        command     = ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})\" || exit 1"]
         interval    = 30
         timeout     = 5
         retries     = 3
@@ -306,7 +306,7 @@ resource "aws_ecs_service" "api" {
 
   network_configuration {
     subnets          = var.private_subnet_ids
-    security_groups  = [var.security_group_id]
+    security_groups  = [var.api_security_group_id]
     assign_public_ip = false
   }
 
@@ -346,7 +346,7 @@ resource "aws_ecs_service" "web" {
 
   network_configuration {
     subnets          = var.private_subnet_ids
-    security_groups  = [var.security_group_id]
+    security_groups  = [var.web_security_group_id]
     assign_public_ip = false
   }
 

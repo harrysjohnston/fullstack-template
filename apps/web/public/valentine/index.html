@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Will You Be My Valentine?</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="video-tile-bg" aria-hidden="true">
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <video class="rhea-tile" src="assets/rhea.mp4" autoplay muted loop playsinline preload="metadata"></video>
+    </div>
+
+    <div class="scene-bg" aria-hidden="true"></div>
+
+    <main id="app" class="app-shell">
+      <section id="introView" class="view intro-view" aria-live="polite">
+        <p class="kicker">Boot Sequence</p>
+        <h1 id="introText" class="intro-text"></h1>
+        <p class="intro-subline">Calibrating the romance engine...</p>
+      </section>
+
+      <section id="askView" class="view ask-view is-hidden" aria-labelledby="question">
+        <div class="panel">
+          <p class="kicker">Decision Protocol</p>
+          <h2 id="question">Will you be my Valentine?</h2>
+          <p id="subline" class="subline">Mera dil aapke paas hai… kya aap apna dil mujhe dengi?</p>
+
+          <div id="btnArea" class="btn-area" role="group" aria-label="Valentine choices">
+            <button id="yesBtn" class="choice-btn yes" type="button">Yes <span aria-hidden="true">💘</span></button>
+            <button id="noBtn" class="choice-btn no" type="button">No</button>
+          </div>
+
+          <button
+            id="finePrintLink"
+            class="fine-link"
+            type="button"
+            aria-expanded="false"
+            aria-controls="finePrintPanel"
+          >
+            read the fine print
+          </button>
+
+          <div id="finePrintPanel" class="fine-panel" aria-hidden="true">
+            <p>By clicking Yes you agree to:</p>
+            <ul>
+              <li>romance (PG)</li>
+              <li>good vibes</li>
+              <li>hand-holding (up to 5 seconds)</li>
+              <li>a kiss (on the cheek)</li>
+            </ul>
+          </div>
+        </div>
+
+        <aside id="achievementToast" class="toast" aria-live="polite">
+          Achievement unlocked: Persistent 'No' Clicker (x3)
+        </aside>
+      </section>
+
+      <section id="successView" class="view success-view is-hidden" aria-live="polite">
+        <div class="panel success-panel">
+          <p class="kicker">Mission Success</p>
+          <h2>It&#39;s a date.</h2>
+          <p class="success-copy">Romance engine is now running at maximum sparkle.</p>
+          <button id="replayBtn" class="choice-btn replay" type="button">Run it again</button>
+        </div>
+      </section>
+    </main>
+
+    <div id="modalBackdrop" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="teaseText">
+      <div id="modal" class="modal">
+        <img id="teaseImg" src="assets/tease1.png" alt="Playful teasing image 1" />
+        <p id="teaseText">Bold choice. Let&#39;s try that again 😇</p>
+        <button id="askAgainBtn" class="choice-btn ask-again" type="button">Ask again</button>
+      </div>
+    </div>
+
+    <template id="heartTemplate">
+      <span class="heart-particle" aria-hidden="true">❤</span>
+    </template>
+  </body>
+</html>

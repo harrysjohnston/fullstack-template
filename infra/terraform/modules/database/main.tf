@@ -9,7 +9,7 @@
 
 resource "aws_db_subnet_group" "main" {
   name        = substr("${var.name_prefix}-db-subnet-group", 0, 255)
-  
+
   description = "Database subnet group for ${var.name_prefix}"
   subnet_ids  = var.subnet_ids
 

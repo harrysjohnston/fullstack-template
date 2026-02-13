@@ -149,14 +149,15 @@ module "ecs" {
   name_prefix = local.name_prefix
   environment = local.env
 
-  vpc_id             = module.networking.vpc_id
-  private_subnet_ids = module.networking.private_subnet_ids
-  security_group_id  = module.networking.ecs_security_group_id
+  vpc_id                = module.networking.vpc_id
+  private_subnet_ids    = module.networking.private_subnet_ids
+  api_security_group_id = module.networking.api_ecs_security_group_id
+  web_security_group_id = module.networking.web_ecs_security_group_id
 
   # Task configuration
-  cpu           = local.config.ecs_cpu
-  memory        = local.config.ecs_memory
-  desired_count = local.ecs_desired_count
+  cpu                  = local.config.ecs_cpu
+  memory               = local.config.ecs_memory
+  desired_count        = local.ecs_desired_count
   ignore_desired_count = var.ecs_ignore_desired_count
 
   # Container images
@@ -168,7 +169,7 @@ module "ecs" {
   web_target_group_arn = module.loadbalancer.web_target_group_arn
 
   # Secrets
-  secrets_arns = module.secrets.all_secret_arns
+  secrets_arns         = module.secrets.all_secret_arns
   ghcr_credentials_arn = module.secrets.ghcr_credentials_arn
 
   # Environment variables

@@ -18,8 +18,13 @@ variable "private_subnet_ids" {
   type        = list(string)
 }
 
-variable "security_group_id" {
-  description = "Security group ID for ECS tasks"
+variable "api_security_group_id" {
+  description = "Security group ID for API ECS tasks"
+  type        = string
+}
+
+variable "web_security_group_id" {
+  description = "Security group ID for Web ECS tasks"
   type        = string
 }
 

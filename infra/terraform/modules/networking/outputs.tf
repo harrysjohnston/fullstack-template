@@ -23,9 +23,19 @@ output "alb_security_group_id" {
   value       = aws_security_group.alb.id
 }
 
+output "web_ecs_security_group_id" {
+  description = "ID of the Web ECS security group"
+  value       = aws_security_group.ecs_web.id
+}
+
+output "api_ecs_security_group_id" {
+  description = "ID of the API ECS security group"
+  value       = aws_security_group.ecs_api.id
+}
+
 output "ecs_security_group_id" {
-  description = "ID of the ECS security group"
-  value       = aws_security_group.ecs.id
+  description = "Deprecated compatibility output for ECS security group ID (API)"
+  value       = aws_security_group.ecs_api.id
 }
 
 output "rds_security_group_id" {
