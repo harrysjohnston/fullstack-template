@@ -3,16 +3,10 @@ import { expect, test } from "@playwright/test";
 test.describe("Homepage", () => {
   test("loads successfully", async ({ page }) => {
     await page.goto("/");
+    // Check that the page loaded (has the main element)
     await expect(page.getByRole("main")).toBeVisible();
   });
 
-  test("renders the valentine homepage iframe", async ({ page }) => {
-    await page.goto("/");
-    const frame = page.frameLocator('iframe[title="Valentine homepage"]');
-    await expect(frame.getByText("Calibrating the romance engine...")).toBeVisible();
-  });
-
-  /*
   test("displays the main heading", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Your files, archived" })).toBeVisible();
@@ -30,5 +24,4 @@ test.describe("Homepage", () => {
     await expect(page.getByRole("button", { name: "Sign in" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
   });
-  */
 });

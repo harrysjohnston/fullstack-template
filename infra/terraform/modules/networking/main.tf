@@ -274,3 +274,40 @@ resource "aws_security_group" "rds" {
     Name = "${var.name_prefix}-rds-sg"
   }
 }
+
+# Legacy ECS Security Group
+# Kept for compatibility with existing deployments/state while services migrate
+# to dedicated web/api security groups.
+resource "aws_security_group" "ecs" {
+  name        = substr("${var.name_prefix}-ecs-sg", 0, 255)
+  description = "Security group for ECS tasks"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description     = "Web port from ALB"
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    description     = "API port from ALB"
+    from_port       = 8000
+    to_port         = 8000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  egress {
+    description = "All outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-ecs-sg"
+  }
+}

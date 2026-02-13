@@ -26,6 +26,13 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "List of availability zones to use"
   type        = list(string)
+
+  validation {
+    condition = alltrue([
+      for az in var.availability_zones : startswith(az, "${var.aws_region}")
+    ])
+    error_message = "Each availability zone must belong to aws_region (e.g. eu-west-2a for eu-west-2)."
+  }
 }
 
 # -----------------------------------------------------------------------------
